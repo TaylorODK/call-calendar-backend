@@ -1,11 +1,12 @@
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser
+from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 
-from backend.core.constants import NAME_MAX_LENGTH
-from backend.core.models import BaseModel
+from core.constants import NAME_MAX_LENGTH
+from core.models import BaseModel
+from users.managers import UserManager
 
 
-class User(AbstractBaseUser, BaseModel):
+class User(AbstractBaseUser, PermissionsMixin, BaseModel):
     """
     Кастомная модель пользователя.
     """
@@ -41,8 +42,11 @@ class User(AbstractBaseUser, BaseModel):
         blank=True,
         null=True,
     )
-    REQUIRED_FIELDS = [email, telegram_id]
+    is_staff = models.BooleanField(verbose_name="Staff", default=True)
+    is_superuser = models.BooleanField(verbose_name="Superuser", default=False)
+    REQUIRED_FIELDS = ["telegram_id"]
     USERNAME_FIELD = "email"
+    objects = UserManager()
 
     class Meta:
         verbose_name = "Пользователь"

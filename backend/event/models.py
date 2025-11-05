@@ -1,7 +1,7 @@
 from django.db import models
 
-from backend.core.constants import NAME_MAX_LENGTH
-from backend.core.models import BaseModel
+from core.constants import NAME_MAX_LENGTH
+from core.models import BaseModel
 
 
 class Event(BaseModel):
