@@ -1,0 +1,11 @@
+# Django (Fake Key)
+DEBUG=True
+DJANGO_SECRET_KEY=secret-key
+DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,0.0.0.0
+
+# PostgreSQL
+POSTGRES_DB=calendar_db
+POSTGRES_USER=calendar_user
+POSTGRES_PASSWORD=calendar_password
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432

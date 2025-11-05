@@ -1,0 +1,50 @@
+[project]
+name = "call-calendar-backend"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "celery>=5.5.3",
+    "django>=5.2.7",
+    "django-celery-beat>=2.8.1",
+    "django-crontab>=0.7.1",
+    "djangorestframework>=3.16.1",
+    "pre-commit>=4.3.0",
+    "psycopg>=3.2.12",
+    "psycopg2>=2.9.11",
+    "psycopg2-binary>=2.9.11",
+    "python-dotenv>=1.2.1",
+    "ruff>=0.14.3",
+]
+
+[tool.ruff]
+exclude = [
+    ".bzr",
+    ".direnv",
+    ".eggs",
+    ".git",
+    ".git-rewrite",
+    ".hg",
+    ".ipynb_checkpoints",
+    ".mypy_cache",
+    ".nox",
+    ".pants.d",
+    ".pyenv",
+    ".pytest_cache",
+    ".pytype",
+    ".ruff_cache",
+    ".svn",
+    ".tox",
+    ".venv",
+    ".vscode",
+    "__pypackages__",
+    "_build",
+    "buck-out",
+    "build",
+    "dist",
+    "node_modules",
+    "site-packages",
+    "venv",
+]
+
