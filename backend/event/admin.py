@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from api.models import Event
+from event.models import Event
 # Register your models here.
 
 
