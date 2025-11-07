@@ -1,0 +1,17 @@
+volumes:
+  pg_calendar_data:
+
+services: 
+  postgres:
+    image: postgres:17.1-alpine3.20
+    container_name: calendar_postgres
+    env_file: .env
+    volumes:
+      - pg_calendar_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
