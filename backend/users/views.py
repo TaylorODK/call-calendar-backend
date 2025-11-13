@@ -4,7 +4,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from users.serializers import LoginCodeCreateSerializer
+from users.serializers import LoginCodeCreateSerializer, CodeConfirmSerializer
 
 
 class EmailCheckViewSet(GenericViewSet):
@@ -21,11 +21,38 @@ class EmailCheckViewSet(GenericViewSet):
             data=request.data,
             context={"telegram_id": request.headers.get("Telegram-ID")},
         )
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "send-code": "Код подтверждения отправлен",
+                },
+                status=status.HTTP_201_CREATED,
+            )
         return Response(
             {
-                "send-code": "Код подтверждения отправлен",
+                "message": str(serializer.errors),
             },
-            status=status.HTTP_201_CREATED,
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(url_path="code", detail=False, methods=["POST"])
+    def code(self, request):
+        serializer = CodeConfirmSerializer(
+            data=request.data,
+            context={"telegram_id": request.headers.get("Telegram-ID")},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "code-confirm": "Пользователь активирован",
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {
+                "message": str(serializer.errors),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
         )

@@ -55,3 +55,36 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
             email=email,
         )
         return verification
+
+
+class CodeConfirmSerializer(serializers.Serializer):
+    code = serializers.CharField(required=True)
+    telegram_id = serializers.CharField(required=False)
+
+    def validate(self, attrs):
+        telegram_id = self.context.get("telegram_id")
+        try:
+            user = User.objects.get(telegram_id=telegram_id)
+        except User.DoesNotExist:
+            raise serializers.ValidationError(
+                "Пользователя с данным telegram_id не существует",
+            )
+        try:
+            code_obj = LoginCode.objects.get(code=attrs["code"], email=user.email)
+        except LoginCode.DoesNotExist:
+            raise serializers.ValidationError("Неверный код")
+        expiration_time = code_obj.updated_at + timedelta(
+            minutes=CODE_EXPIRATION_TIME,
+        )
+        if timezone.now() > expiration_time:
+            raise serializers.ValidationError(
+                f"Время действия кода {CODE_EXPIRATION_TIME} минут",
+            )
+        return attrs
+
+    def create(self, validated_data):
+        telegram_id = self.context.get("telegram_id")
+        user = User.objects.get(telegram_id=telegram_id)
+        user.is_active = True
+        user.save(update_fields=["is_active"])
+        return user
