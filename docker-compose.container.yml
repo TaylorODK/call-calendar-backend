@@ -3,6 +3,22 @@ volumes:
 
 services:
 
+  app:
+    build: .
+    container_name: calendar-app
+    restart: always
+    ports:
+      - "8000:8000"
+    command:
+     - bash
+     - /app/app_start.sh
+    volumes:
+      - ./backend/:/app/
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+
   postgres:
     image: postgres:17.1-alpine3.20
     container_name: calendar-postgres
@@ -37,6 +53,7 @@ services:
     depends_on:
       - redis
       - postgres
+      - app
   
   celery_beat:
     build: .
