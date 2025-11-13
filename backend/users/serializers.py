@@ -43,7 +43,6 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
         code = LoginCode.get_random_code()
         email = validated_data["email"]
         telegram_id = self.context.get("telegram_id")
-        print(telegram_id)
         verification = LoginCode.objects.filter(email=email).first()
         if verification:
             verification.code = code

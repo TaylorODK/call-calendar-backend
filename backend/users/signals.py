@@ -10,11 +10,10 @@ def send_verification_code_email(sender, instance, created, **kwargs):
     """
     Отправка почты при сохранении или обновлении модели.
     """
-    if not instance.is_used:
-        send_mail(
-            subject="Ваш код подтверждения",
-            message=f"Ваш код: {instance.code}",
-            from_email="no-reply@example.com",
-            recipient_list=[instance.email],
-            fail_silently=False,
-        )
+    send_mail(
+        subject="Ваш код подтверждения",
+        message=f"Ваш код: {instance.code}",
+        from_email="no-reply@example.com",
+        recipient_list=[instance.email],
+        fail_silently=False,
+    )
