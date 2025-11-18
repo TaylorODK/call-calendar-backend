@@ -1,7 +1,7 @@
 from django.contrib.auth.models import AnonymousUser
 from users.models import User
 
-EXEMPT_PATHS = ["/admin", "/admin/login/"]
+EXEMPT_PATHS = ["/admin"]
 
 
 class TelegramIDMiddleware:
@@ -9,7 +9,8 @@ class TelegramIDMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        telegram_id = request.headers.get("Telegram-ID")
+        telegram_id = request.headers.get("telegram_id")
+        print(request.headers)
 
         if any(request.path.startswith(p) for p in EXEMPT_PATHS):
             return self.get_response(request)

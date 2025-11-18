@@ -1,4 +1,5 @@
 from datetime import timedelta
+from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
@@ -16,16 +17,20 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
         fields = ("id", "code", "email", "telegram_id", "updated_at")
         read_only_fields = ("id", "code", "telegram_id", "updated_at")
 
-    def validate(self, data):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         email = data["email"].strip().lower()
-        used_email = User.objects.filter(email=email).first()
-        if used_email and used_email.is_active:
+        user = User.objects.filter(email=email).first()
+        if user and user.is_active:
             raise serializers.ValidationError(
-                "Активированный пользователь с таким Email уже существует",
+                "❌ Активированный пользователь с таким Email уже существует, "
+                "пожалуйста, укажите другой email "
+                "и воспользуйтесь командой /register",
+                code=400,
             )
         if email.split("@")[-1] != "ylab.team":
             raise serializers.ValidationError(
-                "Email должен быть в домене @ylab.team",
+                "❌ Ваш Email должен быть в домене @ylab.team",
+                code=400,
             )
         verification = LoginCode.objects.filter(email=email).first()
         if verification:
@@ -34,12 +39,16 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
             )
             if timezone.now() < expiration_time:
                 raise serializers.ValidationError(
-                    f"Новый запрос можно сделать через {CODE_EXPIRATION_TIME} минут",
+                    "❌ время действия отправленного кода "
+                    f"{CODE_EXPIRATION_TIME} минут. "
+                    "Новый запрос команды /register можно сделать после "
+                    "истечения срока действия кода",
+                    code=400,
                 )
         return data
 
     @transaction.atomic
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> LoginCode:
         code = LoginCode.get_random_code()
         email = validated_data["email"]
         telegram_id = self.context.get("telegram_id")
@@ -61,28 +70,36 @@ class CodeConfirmSerializer(serializers.Serializer):
     code = serializers.CharField(required=True)
     telegram_id = serializers.CharField(required=False)
 
-    def validate(self, attrs):
+    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
         telegram_id = self.context.get("telegram_id")
         try:
             user = User.objects.get(telegram_id=telegram_id)
         except User.DoesNotExist:
             raise serializers.ValidationError(
-                "Пользователя с данным telegram_id не существует",
+                "❌ Пользователя вашим telegram_id не существует, "
+                "пожалуйста, воспользуйтесь заного командрой /register",
+                code=400,
             )
         try:
-            code_obj = LoginCode.objects.get(code=attrs["code"], email=user.email)
+            code_obj = LoginCode.objects.get(code=data["code"], email=user.email)
         except LoginCode.DoesNotExist:
-            raise serializers.ValidationError("Неверный код")
+            raise serializers.ValidationError(
+                "❌ Неверный код",
+                code=400,
+            )
         expiration_time = code_obj.updated_at + timedelta(
             minutes=CODE_EXPIRATION_TIME,
         )
         if timezone.now() > expiration_time:
             raise serializers.ValidationError(
-                f"Время действия кода {CODE_EXPIRATION_TIME} минут",
+                "❌ Время действия кода истекло, чтобы "
+                "запросить новый, пожалуйста, "
+                "воспользуйтесь командой /register",
+                code=400,
             )
-        return attrs
+        return data
 
-    def create(self, validated_data):
+    def create(self, validated_data: dict[str, Any]) -> User:
         telegram_id = self.context.get("telegram_id")
         user = User.objects.get(telegram_id=telegram_id)
         user.is_active = True

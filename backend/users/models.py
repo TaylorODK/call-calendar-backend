@@ -26,7 +26,7 @@ class User(AbstractUser):
         blank=True,
     )
     is_active = models.BooleanField(
-        verbose_name="is_active",
+        verbose_name="Активный пользователь",
         default=False,
     )
     USERNAME_FIELD = "email"
@@ -55,12 +55,12 @@ class LoginCode(BaseModel):
     )
 
     class Meta:
-        verbose_name = "Верификация почты"
-        verbose_name_plural = "Верификации почты"
+        verbose_name = "Код верификации почты"
+        verbose_name_plural = "Коды верификации почты"
 
     def __str__(self) -> str:
         return f"Код для верификации почты {self.email}"
 
     @staticmethod
-    def get_random_code():
+    def get_random_code() -> str:
         return get_random_string(CODE_MAX_LENGTH, allowed_chars="0123456789")
