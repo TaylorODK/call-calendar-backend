@@ -11,10 +11,9 @@ dependencies = [
     "django-crontab>=0.7.1",
     "djangorestframework>=3.16.1",
     "pre-commit>=4.3.0",
-    "psycopg>=3.2.12",
-    "psycopg2>=2.9.11",
     "psycopg2-binary>=2.9.11",
     "python-dotenv>=1.2.1",
+    "redis>=7.0.1",
     "ruff>=0.14.3",
 ]
 

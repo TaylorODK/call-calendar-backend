@@ -1,3 +1,62 @@
-from django.shortcuts import render
+from typing import Type
 
-# Create your views here.
+from rest_framework import status, serializers
+from rest_framework.decorators import action
+from rest_framework.permissions import AllowAny
+from rest_framework.request import Request
+from rest_framework.response import Response
+from rest_framework.viewsets import GenericViewSet
+
+from users.serializers import LoginCodeCreateSerializer, CodeConfirmSerializer
+
+
+class EmailCheckViewSet(GenericViewSet):
+    permission_classes = (AllowAny,)
+
+    def get_serializer_class(self) -> Type[serializers.Serializer]:
+        return {
+            "register": LoginCodeCreateSerializer,
+            "code": CodeConfirmSerializer,
+        }.get(self.action, LoginCodeCreateSerializer)
+
+    @action(url_path="register", detail=False, methods=["POST"])
+    def register(self, request: Request, *args, **kwargs) -> Response:
+        serializer = LoginCodeCreateSerializer(
+            data=request.data,
+            context={"telegram_id": request.headers.get("telegram-id")},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "code": "Код подтверждения отправлен",
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {
+                "detail": str(serializer.errors),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(url_path="code", detail=False, methods=["POST"])
+    def code(self, request: Request, *args, **kwargs) -> Response:
+        serializer = CodeConfirmSerializer(
+            data=request.data,
+            context={"telegram_id": request.headers.get("telegram-id")},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return Response(
+                {
+                    "confirm": "Пользователь активирован",
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        return Response(
+            {
+                "detail": str(serializer.errors),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
