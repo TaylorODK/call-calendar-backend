@@ -20,7 +20,7 @@ class TelegramIDMiddleware:
             return self.get_response(request)
         try:
             user = User.objects.get(telegram_id=telegram_id)
-            request.telegram_user = user
+            request.user = user
         except User.DoesNotExist:
-            request.telegram_user = AnonymousUser()
+            request.user = AnonymousUser()
         return self.get_response(request)
