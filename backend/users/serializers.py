@@ -5,7 +5,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
-from core.constants import CODE_EXPIRATION_TIME, ERROR_CODES as ErrorCodes
+from core.enums import ErrorCodes
+from core.constants import CODE_EXPIRATION_TIME
 from users.models import User, LoginCode
 
 
@@ -25,12 +26,12 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                 "❌ Активированный пользователь с таким Email уже существует, "
                 "пожалуйста, укажите другой email "
                 "и воспользуйтесь командой /register",
-                code=ErrorCodes["EMAIL_EXISTS"],
+                code=ErrorCodes.EMAIL_EXISTS,
             )
         if email.split("@")[-1] != "ylab.team":
             raise serializers.ValidationError(
                 "❌ Ваш Email должен быть в домене @ylab.team",
-                code=ErrorCodes["WRONG_DOMAIN"],
+                code=ErrorCodes.WRONG_DOMAIN,
             )
         verification = LoginCode.objects.filter(email=email).first()
         if verification:
@@ -43,7 +44,7 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                     f"{CODE_EXPIRATION_TIME} минут. "
                     "Новый запрос команды /register можно сделать после "
                     "истечения срока действия кода",
-                    code=ErrorCodes["CODE_NOT_EXPIRED"],
+                    code=ErrorCodes.CODE_NOT_EXPIRED,
                 )
         return data
 
@@ -87,14 +88,14 @@ class CodeConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "❌ Пользователя вашим telegram_id не существует, "
                 "пожалуйста, воспользуйтесь заного командрой /register",
-                code=ErrorCodes["ID_DONT_EXIST"],
+                code=ErrorCodes.ID_DONT_EXIST,
             )
         try:
             code_obj = LoginCode.objects.get(code=data["code"], email=user.email)
         except LoginCode.DoesNotExist:
             raise serializers.ValidationError(
                 "❌ Неверный код",
-                code=ErrorCodes["WRONG_CODE"],
+                code=ErrorCodes.WRONG_CODE,
             )
         expiration_time = code_obj.updated_at + timedelta(
             minutes=CODE_EXPIRATION_TIME,
@@ -104,7 +105,7 @@ class CodeConfirmSerializer(serializers.Serializer):
                 "❌ Время действия кода истекло, чтобы "
                 "запросить новый, пожалуйста, "
                 "воспользуйтесь командой /register",
-                code=ErrorCodes["CODE_EXPIRED"],
+                code=ErrorCodes.CODE_EXPIRED,
             )
         return data
 

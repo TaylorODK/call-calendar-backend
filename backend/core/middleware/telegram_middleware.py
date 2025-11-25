@@ -10,7 +10,6 @@ class TelegramIDMiddleware:
 
     def __call__(self, request):
         telegram_id = request.headers.get("telegram-id")
-        print(request.headers)
 
         if any(request.path.startswith(p) for p in EXEMPT_PATHS):
             return self.get_response(request)
@@ -20,7 +19,7 @@ class TelegramIDMiddleware:
             return self.get_response(request)
         try:
             user = User.objects.get(telegram_id=telegram_id)
-            request.user = user
+            request.telegram_user = user
         except User.DoesNotExist:
-            request.user = AnonymousUser()
+            request.telegram_user = AnonymousUser()
         return self.get_response(request)
