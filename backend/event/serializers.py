@@ -18,7 +18,7 @@ class EventShowSerializer(serializers.ModelSerializer):
         return match.group() if match else None
 
     def get_meeting_time(self, instance):
-        time_start = instance.date_from.strftime("%d.%m.%Y %H:%M")
+        time_start = instance.date_from.strftime("%H:%M")
         time_end = instance.date_till.strftime("%H:%M")
         if time_end:
             return f"{time_start} - {time_end}"
