@@ -29,6 +29,21 @@ class User(AbstractUser):
         verbose_name="Активный пользователь",
         default=False,
     )
+    show_star_events = models.BooleanField(
+        verbose_name="Показывать мероприятия со звездочкой",
+        default=False,
+    )
+    show_slash_events = models.BooleanField(
+        verbose_name="Показывать мероприятия со слэшем",
+        default=False,
+    )
+    calendar = models.ForeignKey(
+        "event.Calendar",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+        related_name="users",
+    )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["telegram_id"]
     objects = UserManager()

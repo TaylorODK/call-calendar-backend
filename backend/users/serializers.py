@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 
+from core.enums import ErrorCodes
 from core.constants import CODE_EXPIRATION_TIME
 from users.models import User, LoginCode
 
@@ -25,12 +26,12 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                 "❌ Активированный пользователь с таким Email уже существует, "
                 "пожалуйста, укажите другой email "
                 "и воспользуйтесь командой /register",
-                code=400,
+                code=ErrorCodes.EMAIL_EXISTS,
             )
         if email.split("@")[-1] != "ylab.team":
             raise serializers.ValidationError(
                 "❌ Ваш Email должен быть в домене @ylab.team",
-                code=400,
+                code=ErrorCodes.WRONG_DOMAIN,
             )
         verification = LoginCode.objects.filter(email=email).first()
         if verification:
@@ -43,7 +44,7 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                     f"{CODE_EXPIRATION_TIME} минут. "
                     "Новый запрос команды /register можно сделать после "
                     "истечения срока действия кода",
-                    code=400,
+                    code=ErrorCodes.CODE_NOT_EXPIRED,
                 )
         return data
 
@@ -52,17 +53,26 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
         code = LoginCode.get_random_code()
         email = validated_data["email"]
         telegram_id = self.context.get("telegram_id")
-        verification = LoginCode.objects.filter(email=email).first()
-        if verification:
-            verification.code = code
-            verification.is_used = False
-            verification.save(update_fields=["code", "updated_at"])
-            return verification
-        User.objects.create(email=email, is_active=False, telegram_id=telegram_id)
-        verification = LoginCode.objects.create(
-            code=code,
+        verification, created = LoginCode.objects.get_or_create(
             email=email,
+            defaults={"code": code},
         )
+        if not created:
+            verification.code = code
+            verification.save(update_fields=["code", "updated_at"])
+        user = User.objects.filter(
+            telegram_id=telegram_id,
+        ).first()
+        if user:
+            user.email = email
+            user.is_active = False
+            user.save(update_fields=["email", "is_active"])
+        else:
+            User.objects.create(
+                email=email,
+                is_active=False,
+                telegram_id=telegram_id,
+            )
         return verification
 
 
@@ -78,14 +88,14 @@ class CodeConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "❌ Пользователя вашим telegram_id не существует, "
                 "пожалуйста, воспользуйтесь заного командрой /register",
-                code=400,
+                code=ErrorCodes.ID_DONT_EXIST,
             )
         try:
             code_obj = LoginCode.objects.get(code=data["code"], email=user.email)
         except LoginCode.DoesNotExist:
             raise serializers.ValidationError(
                 "❌ Неверный код",
-                code=400,
+                code=ErrorCodes.WRONG_CODE,
             )
         expiration_time = code_obj.updated_at + timedelta(
             minutes=CODE_EXPIRATION_TIME,
@@ -95,7 +105,7 @@ class CodeConfirmSerializer(serializers.Serializer):
                 "❌ Время действия кода истекло, чтобы "
                 "запросить новый, пожалуйста, "
                 "воспользуйтесь командой /register",
-                code=400,
+                code=ErrorCodes.CODE_EXPIRED,
             )
         return data
 

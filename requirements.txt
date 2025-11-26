@@ -8,8 +8,12 @@ billiard==4.2.2
     # via celery
 celery==5.5.3
     # via django-celery-beat
+certifi==2025.11.12
+    # via requests
 cfgv==3.4.0
     # via pre-commit
+charset-normalizer==3.4.4
+    # via requests
 click==8.3.0
     # via
     #   celery
@@ -41,8 +45,11 @@ django-timezone-field==7.1
 djangorestframework==3.16.1
 filelock==3.20.0
     # via virtualenv
+icalendar==6.3.2
 identify==2.6.15
     # via pre-commit
+idna==3.11
+    # via requests
 kombu==5.5.4
     # via celery
 nodeenv==1.9.1
@@ -60,11 +67,14 @@ psycopg2-binary==2.9.11
 python-crontab==3.3.0
     # via django-celery-beat
 python-dateutil==2.9.0.post0
-    # via celery
+    # via
+    #   celery
+    #   icalendar
 python-dotenv==1.2.1
 pyyaml==6.0.3
     # via pre-commit
 redis==7.0.1
+requests==2.32.5
 ruff==0.14.3
 six==1.17.0
     # via python-dateutil
@@ -76,8 +86,11 @@ tzdata==2025.2
     # via
     #   django
     #   django-celery-beat
+    #   icalendar
     #   kombu
     #   psycopg
+urllib3==2.5.0
+    # via requests
 vine==5.1.0
     # via
     #   amqp

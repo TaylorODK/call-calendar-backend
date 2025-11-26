@@ -8,5 +8,5 @@ router_v1.register("", EmailCheckViewSet, basename="register")
 
 
 urlpatterns = [
-    path("", include(router_v1.urls)),
+    path("users/", include(router_v1.urls)),
 ]

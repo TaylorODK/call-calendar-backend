@@ -10,7 +10,6 @@ class TelegramIDMiddleware:
 
     def __call__(self, request):
         telegram_id = request.headers.get("telegram-id")
-        print(request.headers)
 
         if any(request.path.startswith(p) for p in EXEMPT_PATHS):
             return self.get_response(request)
