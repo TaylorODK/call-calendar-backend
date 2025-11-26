@@ -7,6 +7,10 @@ from core.models import BaseModel
 
 
 class Calendar(models.Model):
+    title = models.CharField(
+        verbose_name="Наименование календаря",
+        max_length=NAME_MAX_LENGTH,
+    )
     key = models.CharField(
         verbose_name="Ключ от календаря",
         max_length=NAME_MAX_LENGTH,
@@ -15,6 +19,9 @@ class Calendar(models.Model):
     class Meta:
         verbose_name = "Календарь"
         verbose_name_plural = "Календари"
+
+    def __str__(self):
+        return self.title
 
 
 class Event(BaseModel):
@@ -48,6 +55,10 @@ class Event(BaseModel):
     all_event = models.BooleanField(
         verbose_name="Общее мероприятие",
         default=False,
+    )
+    calendar = models.ForeignKey(
+        Calendar,
+        on_delete=models.CASCADE,
     )
 
     class Meta:

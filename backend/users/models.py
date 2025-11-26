@@ -37,6 +37,12 @@ class User(AbstractUser):
         verbose_name="Показывать мероприятия со слэшем",
         default=False,
     )
+    calendar = models.ForeignKey(
+        "event.Calendar",
+        on_delete=models.CASCADE,
+        blank=True,
+        null=True,
+    )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["telegram_id"]
     objects = UserManager()

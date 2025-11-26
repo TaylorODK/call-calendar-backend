@@ -11,6 +11,7 @@ def update_or_create_event(
     url_calendar: str,
     date_from: str,
     date_till: str | None,
+    cal: Calendar,
 ) -> Event:
     try:
         event = Event.objects.get(uid=uid)
@@ -40,36 +41,33 @@ def update_or_create_event(
             url_calendar=url_calendar,
             date_from=date_from,
             date_till=date_till,
+            calendar=cal,
         )
     event.check_for_star_slash()
     event.save(update_fields=["star", "slash", "all_event"])
     return event
 
 
-def parse_ics():
-    calendars = Calendar.objects.all()
-    for cal in calendars:
-        url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
-        try:
-            events = requests.get(url)
-            events.raise_for_status()
-        except requests.RequestException:
+def parse_ics(cal: Calendar):
+    url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
+    events = requests.get(url)
+    # events.raise_for_status() TODO: Добавить логгер для исключения
+    calendar = ICalendar.from_ical(events.content)
+    for event in calendar.walk("VEVENT"):
+        uid = str(event.get("uid"))
+        title = str(event.get("summary", ""))
+        description = str(event.get("description", ""))
+        url_calendar = str(event.get("url", ""))
+        date_from = event.get("dtstart").dt
+        date_till = event.get("dtend").dt if event.get("dtend") else None
+        if date_from <= timezone.now():
             continue
-        calendar = ICalendar.from_ical(events.content)
-        for event in calendar.walk("VEVENT"):
-            uid = str(event.get("uid"))
-            title = str(event.get("summary", ""))
-            description = str(event.get("description", ""))
-            url_calendar = str(event.get("url", ""))
-            date_from = event.get("dtstart").dt
-            date_till = event.get("dtend").dt if event.get("dtend") else None
-            if date_from <= timezone.now():
-                continue
-            event = update_or_create_event(
-                uid,
-                title,
-                description,
-                url_calendar,
-                date_from,
-                date_till,
-            )
+        event = update_or_create_event(
+            uid,
+            title,
+            description,
+            url_calendar,
+            date_from,
+            date_till,
+            cal,
+        )

@@ -15,7 +15,11 @@ class EventShowView(GenericViewSet):
 
     def get_queryset(self):
         user = self.request.telegram_user
-        base_q = Q(all_event=True, date_from__date=timezone.localdate())
+        base_q = Q(
+            all_event=True,
+            date_from__date=timezone.localdate(),
+            calendar=user.calendar,
+        )
         if user.show_star_events:
             base_q |= Q(star=True)
         if user.show_slash_events:
@@ -28,7 +32,7 @@ class EventShowView(GenericViewSet):
         detail=False,
     )
     def show_events(self, request):
-        parse_ics()
+        parse_ics(cal=self.request.telegram_user.calendar)
         queryset = self.get_queryset()
         serializer = EventShowSerializer(queryset, many=True)
         return Response(
