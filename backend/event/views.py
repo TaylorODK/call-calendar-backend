@@ -24,7 +24,17 @@ class EventShowView(GenericViewSet):
             base_q |= Q(star=True)
         if user.show_slash_events:
             base_q |= Q(slash=True)
-        return Event.objects.filter(base_q).order_by("date_from")
+        return (
+            Event.objects.filter(
+                base_q,
+            )
+            .select_related(
+                "calendar",
+            )
+            .order_by(
+                "date_from",
+            )
+        )
 
     @action(
         methods=["GET"],

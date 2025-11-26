@@ -59,6 +59,7 @@ class Event(BaseModel):
     calendar = models.ForeignKey(
         Calendar,
         on_delete=models.CASCADE,
+        related_name="events",
     )
 
     class Meta:

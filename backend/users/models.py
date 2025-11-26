@@ -42,6 +42,7 @@ class User(AbstractUser):
         on_delete=models.CASCADE,
         blank=True,
         null=True,
+        related_name="users",
     )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["telegram_id"]
