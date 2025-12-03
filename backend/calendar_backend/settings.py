@@ -164,13 +164,11 @@ CELERY_WORKER_REVOKES_MAXCELERY_WORKER_REVOKE_EXPIRES = 0
 CELERY_BEAT_SCHEDULE = {
     "update_calendar_every_15_minutes": {
         "task": "event.tasks.start_update_calendar",
-        "schedule": 60,
-        "args": (),
+        "schedule": crontab(minute="*/15"),
     },
     "delete_old_events_every_day": {
         "task": "event.tasks.clear_old_events",
         "schedule": crontab(hour=0, minute=0),
-        "args": (),
     },
 }
 
