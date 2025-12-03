@@ -14,6 +14,7 @@ import os
 
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
 
 load_dotenv()
 
@@ -119,9 +120,9 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "ru-ru"
 
-TIME_ZONE = "UTC"
+TIME_ZONE = "Europe/Moscow"
 
 USE_I18N = True
 
@@ -157,5 +158,19 @@ CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379"
 CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:6379"
 CELERY_ACCEPT_CONTENT = ["application/json"]
 CELERY_TASK_SERIALIZER = "json"
+CELERY_TIMEZONE = "Europe/Moscow"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_WORKER_REVOKES_MAXCELERY_WORKER_REVOKE_EXPIRES = 0
+CELERY_BEAT_SCHEDULE = {
+    "update_calendar_every_15_minutes": {
+        "task": "event.tasks.start_update_calendar",
+        "schedule": crontab(minute="*/15"),
+    },
+    "delete_old_events_every_day": {
+        "task": "event.tasks.clear_old_events",
+        "schedule": crontab(hour=0, minute=0),
+    },
+}
+
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")

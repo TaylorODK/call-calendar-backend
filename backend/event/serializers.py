@@ -1,6 +1,7 @@
 import re
 from rest_framework import serializers
 from event.models import Event
+from django.utils import timezone
 
 
 class EventShowSerializer(serializers.ModelSerializer):
@@ -18,8 +19,8 @@ class EventShowSerializer(serializers.ModelSerializer):
         return match.group() if match else None
 
     def get_meeting_time(self, instance):
-        time_start = instance.date_from.strftime("%H:%M")
-        time_end = instance.date_till.strftime("%H:%M")
-        if time_end:
-            return f"{time_start} - {time_end}"
-        return f"{time_start}"
+        date_from = timezone.localtime(instance.date_from)
+        if instance.date_till:
+            date_till = timezone.localtime(instance.date_till)
+            return f"{date_from:%H:%M} - {date_till:%H:%M}"
+        return f"{date_from:%H:%M}"

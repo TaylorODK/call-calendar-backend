@@ -19,7 +19,7 @@ class EmailCheckViewSet(GenericViewSet):
             "code": CodeConfirmSerializer,
         }.get(self.action, LoginCodeCreateSerializer)
 
-    @action(url_path="register", detail=False, methods=["POST"])
+    @action(url_path="email", detail=False, methods=["POST"])
     def register(self, request: Request, *args, **kwargs) -> Response:
         serializer = LoginCodeCreateSerializer(
             data=request.data,

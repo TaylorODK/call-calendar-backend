@@ -20,6 +20,7 @@ class EventAdmin(admin.ModelAdmin):
         "star",
         "slash",
         "all_event",
+        "created_at",
     )
     list_display_links = ("title",)
     search_fields = ("title", "star", "slash", "all_event")
