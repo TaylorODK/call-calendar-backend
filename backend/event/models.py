@@ -32,17 +32,21 @@ class Event(BaseModel):
     )
     date_from = models.DateTimeField(
         verbose_name="Дата и время начала мероприятия",
+        blank=True,
     )
     date_till = models.DateTimeField(
         verbose_name="Дата и время завершения мероприятия",
+        blank=True,
     )
     title = models.TextField(
         verbose_name="Наименование мероприятия",
+        blank=True,
     )
-    description = models.TextField(verbose_name="Описание мероприятия")
+    description = models.TextField(verbose_name="Описание мероприятия", blank=True)
     url_calendar = models.CharField(
         "Ссылка на мероприятие",
         max_length=NAME_MAX_LENGTH,
+        blank=True,
     )
     star = models.BooleanField(
         verbose_name="Со звездочкой",
@@ -61,12 +65,22 @@ class Event(BaseModel):
         on_delete=models.CASCADE,
         related_name="events",
     )
+    users = models.ManyToManyField(
+        "users.User",
+        default=None,
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         verbose_name = "Мероприятие"
         verbose_name_plural = "Мероприятия"
 
     def check_for_star_slash(self):
-        self.star = "*" in self.title
-        self.slash = bool(re.search(r"/$", self.title))
+        if bool(re.search(r"/\*$", self.title)):
+            self.star = True
+            self.slash = True
+        else:
+            self.star = "*" in self.title
+            self.slash = bool(re.search(r"/+$", self.title))
         self.all_event = not self.star and not self.slash

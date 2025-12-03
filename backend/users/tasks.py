@@ -12,6 +12,7 @@ from users.models import LoginCode
 def send_code_email(code_id):
     """Отправка пользователю кода на почту."""
 
+    print("начало отправки сообщения")
     request = LoginCode.objects.get(id=code_id)
     subject = "Ваш код подтверждения"
     message = f"Ваш код: {request.code}"
@@ -21,4 +22,5 @@ def send_code_email(code_id):
         from_email="no-reply@example.com",
         to=[request.email],
     )
+    print("сообщение отправлено")
     email.send()

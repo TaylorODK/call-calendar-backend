@@ -10,5 +10,4 @@ def send_verification_code_email(sender, instance, created, **kwargs):
     """
     Отправка почты при сохранении модели.
     """
-    if created:
-        send_code_email.delay(code_id=instance.id)
+    send_code_email.delay(code_id=instance.id)

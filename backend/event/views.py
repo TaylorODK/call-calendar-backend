@@ -5,7 +5,6 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from event.models import Event
-from event.utils import parse_ics
 from event.serializers import EventShowSerializer
 from event.permissions import TelegramUserPermission
 
@@ -16,17 +15,17 @@ class EventShowView(GenericViewSet):
     def get_queryset(self):
         user = self.request.telegram_user
         base_q = Q(
-            all_event=True,
             date_from__date=timezone.localdate(),
+            date_from__gt=timezone.now(),
             calendar=user.calendar,
+            users=user,
         )
-        if user.show_star_events:
-            base_q |= Q(star=True)
-        if user.show_slash_events:
-            base_q |= Q(slash=True)
         return (
             Event.objects.filter(
                 base_q,
+            )
+            .prefetch_related(
+                "users",
             )
             .select_related(
                 "calendar",
@@ -42,7 +41,6 @@ class EventShowView(GenericViewSet):
         detail=False,
     )
     def show_events(self, request):
-        parse_ics(cal=self.request.telegram_user.calendar)
         queryset = self.get_queryset()
         serializer = EventShowSerializer(queryset, many=True)
         return Response(

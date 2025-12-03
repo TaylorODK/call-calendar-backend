@@ -78,4 +78,7 @@ class LoginCode(BaseModel):
 
     @staticmethod
     def get_random_code() -> str:
-        return get_random_string(CODE_MAX_LENGTH, allowed_chars="0123456789")
+        return get_random_string(
+            CODE_MAX_LENGTH,
+            allowed_chars="0123456789",
+        )
