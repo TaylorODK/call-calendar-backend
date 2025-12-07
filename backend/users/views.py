@@ -21,6 +21,13 @@ class EmailCheckViewSet(GenericViewSet):
 
     @action(url_path="email", detail=False, methods=["POST"])
     def register(self, request: Request, *args, **kwargs) -> Response:
+        if not request.headers.get("telegram-id"):
+            return Response(
+                {
+                    "detaid": "Не был получен telegram-id",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = LoginCodeCreateSerializer(
             data=request.data,
             context={"telegram_id": request.headers.get("telegram-id")},
@@ -42,6 +49,13 @@ class EmailCheckViewSet(GenericViewSet):
 
     @action(url_path="code", detail=False, methods=["POST"])
     def code(self, request: Request, *args, **kwargs) -> Response:
+        if not request.headers.get("telegram-id"):
+            return Response(
+                {
+                    "detaid": "Не был получен telegram-id",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = CodeConfirmSerializer(
             data=request.data,
             context={"telegram_id": request.headers.get("telegram-id")},

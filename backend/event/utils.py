@@ -44,12 +44,14 @@ def update_or_create_event(
     subject = ""
     event, created = Event.objects.get_or_create(
         uid=uid,
-        title=title,
-        description=description,
-        url_calendar=url_calendar,
-        date_from=date_from,
-        date_till=date_till,
-        calendar=cal,
+        defaults={
+            "title": title,
+            "description": description,
+            "url_calendar": url_calendar,
+            "date_from": date_from,
+            "date_till": date_till,
+            "calendar": cal,
+        },
     )
     if not created:
         changed_fields = {}
@@ -61,7 +63,9 @@ def update_or_create_event(
             changed_fields["description"] = f"изменилось описание {description}."
         if event.url_calendar != url_calendar:
             event.url_calendar = url_calendar
-            changed_fields["url"] = f"изменилась ссылка в календаре {url_calendar}"
+            changed_fields["url_calendar"] = (
+                f"изменилась ссылка в календаре {url_calendar}"
+            )
         if event.date_from != date_from:
             event.date_from = date_from
             changed_fields["date_from"] = f"изменилось время начала на {date_from}."
@@ -174,17 +178,22 @@ def create_this_day_regular_event(
     }
     new_date_from = date_from.replace(year=today.year, month=today.month, day=today.day)
     new_date_till = date_till.replace(year=today.year, month=today.month, day=today.day)
+    weeks_from_start_event = (today - date_from.date()).days // 7
     if rules["FREQ"] == "WEEKLY":
         for day in rules["BYDAY"]:
-            if byday_map[today.weekday()] == day:
+            if byday_map[today.weekday()] == day and (
+                weeks_from_start_event % int(rules["INTERVAL"]) == 0
+            ):
                 event, created = Event.objects.get_or_create(
                     uid=uid,
-                    title=title,
-                    description=description,
-                    url_calendar=url_calendar,
-                    date_from=new_date_from,
-                    date_till=new_date_till,
-                    calendar=cal,
+                    defaults={
+                        "title": title,
+                        "description": description,
+                        "url_calendar": url_calendar,
+                        "date_from": new_date_from,
+                        "date_till": new_date_till,
+                        "calendar": cal,
+                    },
                 )
                 set_users_for_event(event)
                 return event
@@ -197,12 +206,14 @@ def create_this_day_regular_event(
         ):
             event, created = Event.objects.get_or_create(
                 uid=uid,
-                title=title,
-                description=description,
-                url_calendar=url_calendar,
-                date_from=new_date_from,
-                date_till=new_date_till,
-                calendar=cal,
+                defaults={
+                    "title": title,
+                    "description": description,
+                    "url_calendar": url_calendar,
+                    "date_from": new_date_from,
+                    "date_till": new_date_till,
+                    "calendar": cal,
+                },
             )
             set_users_for_event(event)
             return event

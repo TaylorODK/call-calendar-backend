@@ -27,7 +27,9 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
     # via celery
 colorama==0.4.6
-    # via click
+    # via
+    #   click
+    #   pytest
 cron-descriptor==2.0.6
     # via django-celery-beat
 distlib==0.4.0
@@ -50,20 +52,31 @@ identify==2.6.15
     # via pre-commit
 idna==3.11
     # via requests
+iniconfig==2.3.0
+    # via pytest
 kombu==5.5.4
     # via celery
 nodeenv==1.9.1
     # via pre-commit
 packaging==25.0
-    # via kombu
+    # via
+    #   kombu
+    #   pytest
 platformdirs==4.5.0
     # via virtualenv
+pluggy==1.6.0
+    # via pytest
 pre-commit==4.3.0
 prompt-toolkit==3.0.52
     # via click-repl
 psycopg==3.2.12
 psycopg2==2.9.11
 psycopg2-binary==2.9.11
+pygments==2.19.2
+    # via pytest
+pytest==9.0.2
+    # via pytest-django
+pytest-django==4.11.1
 python-crontab==3.3.0
     # via django-celery-beat
 python-dateutil==2.9.0.post0

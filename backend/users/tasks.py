@@ -1,6 +1,6 @@
 from celery import shared_task
 from django.core.mail import EmailMessage
-
+from calendar_backend import settings
 from users.models import LoginCode
 
 
@@ -18,7 +18,7 @@ def send_code_email(code_id):
     email = EmailMessage(
         subject=subject,
         body=message,
-        from_email="no-reply@example.com",
+        from_email=settings.DEFAULT_FROM_EMAIL,
         to=[request.email],
     )
     email.send()

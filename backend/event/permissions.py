@@ -4,4 +4,7 @@ from rest_framework.permissions import BasePermission
 
 class TelegramUserPermission(BasePermission):
     def has_permission(self, request, view):
-        return request.telegram_user != AnonymousUser()
+        telegram_user = getattr(request._request, "telegram_user", None)
+        if telegram_user is None:
+            return False
+        return telegram_user != AnonymousUser()
