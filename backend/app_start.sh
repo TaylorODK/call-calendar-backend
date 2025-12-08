@@ -1,9 +1,9 @@
 #!/bin/bash
 set -e
 
-python manage.py makemigrations users
-python manage.py makemigrations event
-python manage.py migrate django_celery_beat
-python manage.py collectstatic --noinput
-python manage.py migrate
-python manage.py runserver 0.0.0.0:8000
+python backend/manage.py makemigrations users
+python backend/manage.py makemigrations event
+python backend/manage.py migrate django_celery_beat
+python backend/manage.py collectstatic --noinput
+python backend/manage.py migrate
+python backend/manage.py runserver 0.0.0.0:8000

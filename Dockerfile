@@ -2,7 +2,7 @@ FROM python:3.12
 
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
+WORKDIR /app/
 
 RUN python3 -m venv .venv
 
@@ -18,10 +18,8 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml uv.lock requirements.txt ./
+COPY pyproject.toml uv.lock requirements.txt pytest.ini ./
 
 RUN uv pip install -r requirements.txt --system
 
 RUN uv pip list
-
-COPY backend .

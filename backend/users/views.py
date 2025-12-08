@@ -1,3 +1,5 @@
+import logging
+
 from typing import Type
 
 from rest_framework import status, serializers
@@ -8,6 +10,9 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
 from users.serializers import LoginCodeCreateSerializer, CodeConfirmSerializer
+
+
+logger = logging.getLogger("app")
 
 
 class EmailCheckViewSet(GenericViewSet):
@@ -21,12 +26,22 @@ class EmailCheckViewSet(GenericViewSet):
 
     @action(url_path="email", detail=False, methods=["POST"])
     def register(self, request: Request, *args, **kwargs) -> Response:
+        if not request.headers.get("telegram-id"):
+            return Response(
+                {
+                    "detaid": "Не был получен telegram-id",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = LoginCodeCreateSerializer(
             data=request.data,
             context={"telegram_id": request.headers.get("telegram-id")},
         )
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            logger.info(
+                f"Регистрация пользователя {instance.email}",
+            )
             return Response(
                 {
                     "code": "Код подтверждения отправлен",
@@ -42,12 +57,22 @@ class EmailCheckViewSet(GenericViewSet):
 
     @action(url_path="code", detail=False, methods=["POST"])
     def code(self, request: Request, *args, **kwargs) -> Response:
+        if not request.headers.get("telegram-id"):
+            return Response(
+                {
+                    "detaid": "Не был получен telegram-id",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         serializer = CodeConfirmSerializer(
             data=request.data,
             context={"telegram_id": request.headers.get("telegram-id")},
         )
         if serializer.is_valid():
-            serializer.save()
+            instance = serializer.save()
+            logger.info(
+                f"Активация пользователя {instance.email}",
+            )
             return Response(
                 {
                     "confirm": "Пользователь активирован",

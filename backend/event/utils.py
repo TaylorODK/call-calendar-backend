@@ -1,3 +1,4 @@
+import logging
 import re
 import requests
 from datetime import datetime
@@ -7,6 +8,9 @@ from django.db.models import Q
 from django.utils import timezone
 from event.models import Calendar, Event
 from users.models import User
+
+
+calendar_logger = logging.getLogger("calendar")
 
 
 def set_users_for_event(
@@ -44,12 +48,14 @@ def update_or_create_event(
     subject = ""
     event, created = Event.objects.get_or_create(
         uid=uid,
-        title=title,
-        description=description,
-        url_calendar=url_calendar,
-        date_from=date_from,
-        date_till=date_till,
-        calendar=cal,
+        defaults={
+            "title": title,
+            "description": description,
+            "url_calendar": url_calendar,
+            "date_from": date_from,
+            "date_till": date_till,
+            "calendar": cal,
+        },
     )
     if not created:
         changed_fields = {}
@@ -61,7 +67,9 @@ def update_or_create_event(
             changed_fields["description"] = f"изменилось описание {description}."
         if event.url_calendar != url_calendar:
             event.url_calendar = url_calendar
-            changed_fields["url"] = f"изменилась ссылка в календаре {url_calendar}"
+            changed_fields["url_calendar"] = (
+                f"изменилась ссылка в календаре {url_calendar}"
+            )
         if event.date_from != date_from:
             event.date_from = date_from
             changed_fields["date_from"] = f"изменилось время начала на {date_from}."
@@ -71,6 +79,7 @@ def update_or_create_event(
         if changed_fields:
             fields_list = [field for field in changed_fields.keys()]
             event.save(update_fields=fields_list)
+            calendar_logger.info(f"Обновление события {event.title}")
             if (
                 event.date_from.date() == timezone.localdate()
                 or date_from.date() == timezone.localdate()
@@ -83,6 +92,7 @@ def update_or_create_event(
             f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
         )
         subject = "Новое мероприятие"
+        calendar_logger.info(f"Создание нового события {event.title}")
     set_users_for_event(event)
     if message != "Empty":
         from event.tasks import send_telegram_message
@@ -100,13 +110,22 @@ def delete_events_not_in_calendar(current_events: list, new_events: list) -> Non
                 from event.tasks import send_telegram_message
 
                 send_telegram_message(message, subject, event=current_event)
+                calendar_logger.info(
+                    f"Удалено мероприятие '{current_event.title}'",
+                )
             current_event.delete()
 
 
 def parse_ics(cal: Calendar) -> None:
     url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
-    events = requests.get(url)
-    # events.raise_for_status() TODO: Добавить логгер для исключения
+    try:
+        events = requests.get(url)
+        events.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        calendar_logger.error(
+            f"Не удалось обновить календарь '{cal.title}': {e}",
+        )
+        return
     calendar = ICalendar.from_ical(events.content)
     current_events = Event.objects.filter(
         date_from__gt=timezone.now(),
@@ -174,19 +193,28 @@ def create_this_day_regular_event(
     }
     new_date_from = date_from.replace(year=today.year, month=today.month, day=today.day)
     new_date_till = date_till.replace(year=today.year, month=today.month, day=today.day)
+    weeks_from_start_event = (today - date_from.date()).days // 7
     if rules["FREQ"] == "WEEKLY":
         for day in rules["BYDAY"]:
-            if byday_map[today.weekday()] == day:
+            if byday_map[today.weekday()] == day and (
+                weeks_from_start_event % int(rules["INTERVAL"]) == 0
+            ):
                 event, created = Event.objects.get_or_create(
                     uid=uid,
-                    title=title,
-                    description=description,
-                    url_calendar=url_calendar,
-                    date_from=new_date_from,
-                    date_till=new_date_till,
-                    calendar=cal,
+                    defaults={
+                        "title": title,
+                        "description": description,
+                        "url_calendar": url_calendar,
+                        "date_from": new_date_from,
+                        "date_till": new_date_till,
+                        "calendar": cal,
+                    },
                 )
                 set_users_for_event(event)
+                if created:
+                    calendar_logger.info(
+                        f"Создание нового WEEKLY события {event.title}",
+                    )
                 return event
     elif rules["FREQ"] == "MONTHLY":
         event_week_number = int(rules["BYDAY"][0][:-2])
@@ -197,14 +225,20 @@ def create_this_day_regular_event(
         ):
             event, created = Event.objects.get_or_create(
                 uid=uid,
-                title=title,
-                description=description,
-                url_calendar=url_calendar,
-                date_from=new_date_from,
-                date_till=new_date_till,
-                calendar=cal,
+                defaults={
+                    "title": title,
+                    "description": description,
+                    "url_calendar": url_calendar,
+                    "date_from": new_date_from,
+                    "date_till": new_date_till,
+                    "calendar": cal,
+                },
             )
             set_users_for_event(event)
+            if created:
+                calendar_logger.info(
+                    f"Создание нового MONTHLY события {event.title}",
+                )
             return event
 
 

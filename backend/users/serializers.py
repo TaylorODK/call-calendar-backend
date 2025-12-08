@@ -25,7 +25,7 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(
                 "❌ Активированный пользователь с таким Email уже существует, "
                 "пожалуйста, укажите другой email "
-                "и воспользуйтесь командой /register",
+                "и воспользуйтесь командой /email",
                 code=ErrorCodes.EMAIL_EXISTS,
             )
         if email.split("@")[-1] != "ylab.team":
@@ -42,7 +42,7 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(
                     "❌ время действия отправленного кода "
                     f"{CODE_EXPIRATION_TIME} минут. "
-                    "Новый запрос команды /register можно сделать после "
+                    "Новый запрос команды /email можно сделать после "
                     "истечения срока действия кода",
                     code=ErrorCodes.CODE_NOT_EXPIRED,
                 )
@@ -87,7 +87,7 @@ class CodeConfirmSerializer(serializers.Serializer):
         except User.DoesNotExist:
             raise serializers.ValidationError(
                 "❌ Пользователя вашим telegram_id не существует, "
-                "пожалуйста, воспользуйтесь заного командрой /register",
+                "пожалуйста, воспользуйтесь заного командрой /email",
                 code=ErrorCodes.ID_DONT_EXIST,
             )
         try:
@@ -104,7 +104,7 @@ class CodeConfirmSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 "❌ Время действия кода истекло, чтобы "
                 "запросить новый, пожалуйста, "
-                "воспользуйтесь командой /register",
+                "воспользуйтесь командой /email",
                 code=ErrorCodes.CODE_EXPIRED,
             )
         return data

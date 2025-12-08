@@ -10,8 +10,8 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import logging.config
 import os
-
 from pathlib import Path
 from dotenv import load_dotenv
 from celery.schedules import crontab
@@ -97,7 +97,6 @@ DATABASES = {
     },
 }
 
-
 # Password validation
 # https://docs.djangoproject.com/en/4.2/ref/settings/#auth-password-validators
 
@@ -151,6 +150,7 @@ EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True").lower() == "true"
 EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False").lower() == "true"
 EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 # CELERY
 REDIS_HOST = os.getenv("REDIS_HOST")
@@ -172,5 +172,79 @@ CELERY_BEAT_SCHEDULE = {
     },
 }
 
-
+# BOT
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+
+
+# LOGGING
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "app": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(path)s] [%(method)s-%(status)s] > %(message)s",
+            "datefmt": "%d-%m-%y %H:%M:%S",
+        },
+        "calendar": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(module)s] > %(message)s",
+            "datefmt": "%d-%m-%y %H:%M:%S",
+        },
+        "bot": {
+            "format": "[[%(asctime)s] [%(levelname)s] > %(message)s",
+        },
+        "email": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(module)s] > %(message)s",
+            "datefmt": "%d-%m-%y %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "app": {
+            "level": "DEBUG",
+            "class": "logging.FileHandler",
+            "filename": os.path.join("..", BASE_DIR, "django.log"),
+            "formatter": "app",
+        },
+        "calendar": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join("..", BASE_DIR, "django.log"),
+            "formatter": "calendar",
+        },
+        "bot": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join("..", BASE_DIR, "bot.log"),
+            "formatter": "bot",
+        },
+        "email_handler": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join("..", BASE_DIR, "django.log"),
+            "formatter": "email",
+        },
+    },
+    "loggers": {
+        "app": {
+            "handlers": ["app"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "calendar": {
+            "handlers": ["calendar"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "bot": {
+            "handlers": ["bot"],
+            "level": "INFO",
+            "propagate": True,
+        },
+        "email": {
+            "handlers": ["email_handler"],
+            "level": "INFO",
+            "propagate": True,
+        },
+    },
+}
+
+logging.config.dictConfig(LOGGING)

@@ -7,6 +7,7 @@ from rest_framework import status
 from event.models import Event
 from event.serializers import EventShowSerializer
 from event.permissions import TelegramUserPermission
+from users.models import User
 
 
 class EventShowView(GenericViewSet):
@@ -41,6 +42,15 @@ class EventShowView(GenericViewSet):
         detail=False,
     )
     def show_events(self, request):
+        user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
+        if not user.is_active:
+            return Response(
+                {
+                    "error": "Пользователь не был активирован,"
+                    " повторите регистрацию.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         queryset = self.get_queryset()
         serializer = EventShowSerializer(queryset, many=True)
         return Response(
