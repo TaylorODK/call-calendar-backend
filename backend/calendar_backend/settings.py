@@ -185,6 +185,10 @@ LOGGING = {
             "format": "[%(asctime)s] [%(levelname)s] [%(path)s] [%(method)s-%(status)s] > %(message)s",
             "datefmt": "%d-%m-%y %H:%M:%S",
         },
+        "calendar": {
+            "format": "[%(asctime)s] [%(levelname)s] [%(module)s] > %(message)s",
+            "datefmt": "%d-%m-%y %H:%M:%S",
+        },
         "bot": {
             "format": "[[%(asctime)s] [%(levelname)s] > %(message)s",
         },
@@ -199,6 +203,12 @@ LOGGING = {
             "class": "logging.FileHandler",
             "filename": os.path.join("..", BASE_DIR, "django.log"),
             "formatter": "app",
+        },
+        "calendar": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.path.join("..", BASE_DIR, "django.log"),
+            "formatter": "calendar",
         },
         "bot": {
             "level": "INFO",
@@ -216,6 +226,11 @@ LOGGING = {
     "loggers": {
         "app": {
             "handlers": ["app"],
+            "level": "DEBUG",
+            "propagate": True,
+        },
+        "calendar": {
+            "handlers": ["calendar"],
             "level": "DEBUG",
             "propagate": True,
         },

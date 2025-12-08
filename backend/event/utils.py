@@ -1,3 +1,4 @@
+import logging
 import re
 import requests
 from datetime import datetime
@@ -7,6 +8,9 @@ from django.db.models import Q
 from django.utils import timezone
 from event.models import Calendar, Event
 from users.models import User
+
+
+calendar_logger = logging.getLogger("calendar")
 
 
 def set_users_for_event(
@@ -75,6 +79,7 @@ def update_or_create_event(
         if changed_fields:
             fields_list = [field for field in changed_fields.keys()]
             event.save(update_fields=fields_list)
+            calendar_logger.info(f"Обновление события {event.title}")
             if (
                 event.date_from.date() == timezone.localdate()
                 or date_from.date() == timezone.localdate()
@@ -87,6 +92,7 @@ def update_or_create_event(
             f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
         )
         subject = "Новое мероприятие"
+        calendar_logger.info(f"Создание нового события {event.title}")
     set_users_for_event(event)
     if message != "Empty":
         from event.tasks import send_telegram_message
@@ -104,13 +110,22 @@ def delete_events_not_in_calendar(current_events: list, new_events: list) -> Non
                 from event.tasks import send_telegram_message
 
                 send_telegram_message(message, subject, event=current_event)
+                calendar_logger.info(
+                    f"Удалено мероприятие '{current_event.title}'",
+                )
             current_event.delete()
 
 
 def parse_ics(cal: Calendar) -> None:
     url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
-    events = requests.get(url)
-    # events.raise_for_status() TODO: Добавить логгер для исключения
+    try:
+        events = requests.get(url)
+        events.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        calendar_logger.error(
+            f"Не удалось обновить календарь '{cal.title}': {e}",
+        )
+        return
     calendar = ICalendar.from_ical(events.content)
     current_events = Event.objects.filter(
         date_from__gt=timezone.now(),
@@ -196,6 +211,10 @@ def create_this_day_regular_event(
                     },
                 )
                 set_users_for_event(event)
+                if created:
+                    calendar_logger.info(
+                        f"Создание нового WEEKLY события {event.title}",
+                    )
                 return event
     elif rules["FREQ"] == "MONTHLY":
         event_week_number = int(rules["BYDAY"][0][:-2])
@@ -216,6 +235,10 @@ def create_this_day_regular_event(
                 },
             )
             set_users_for_event(event)
+            if created:
+                calendar_logger.info(
+                    f"Создание нового MONTHLY события {event.title}",
+                )
             return event
 
 
