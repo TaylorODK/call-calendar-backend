@@ -47,7 +47,7 @@ class EventShowView(GenericViewSet):
             return Response(
                 {
                     "error": "Пользователь не был активирован,"
-                    " повторите регистрацию",
+                    " повторите регистрацию.",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
