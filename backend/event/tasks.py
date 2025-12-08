@@ -1,3 +1,5 @@
+import logging
+
 from celery import shared_task
 import requests
 from django.utils import timezone
@@ -6,18 +8,23 @@ from event.models import Calendar, Event
 from calendar_backend.settings import BOT_TOKEN
 
 
+bot_logger = logging.getLogger("bot")
+app_logger = logging.getLogger("app")
+
+
 @shared_task
 def run_base_update(calendar_id: int) -> None:
     """Таска по обновлению календаря."""
 
     cal = Calendar.objects.get(id=calendar_id)
+    app_logger.info(f"Обновление календаря {calendar_id}")
     parse_ics(cal)
 
 
 @shared_task
 def start_update_calendar() -> None:
     """Таска по обновлению всех календарей."""
-
+    app_logger.info("Начало задачи по обновлению календарей")
     for calendar_id in Calendar.objects.values_list("id", flat=True):
         run_base_update.delay(calendar_id)
 
@@ -43,13 +50,14 @@ def send_telegram_message(
         }
         response = requests.post(url, json=data)
         responses.append(response.json)
+        bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
     return responses if responses else None
 
 
 @shared_task
 def clear_old_events() -> None:
     """Удаление старых мероприятий (вчерашних)."""
-
+    app_logger.info("Начало задачи по удалению старых мероприятий")
     for event in Event.objects.all():
         if event.date_from.date() < timezone.localdate():
             event.delete()
