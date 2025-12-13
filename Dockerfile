@@ -18,9 +18,9 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-COPY backend pyproject.toml uv.lock requirements.txt pytest.ini ./
-
-RUN chmod +x /app/app_start.sh
+COPY backend /app/backend
+COPY pyproject.toml uv.lock requirements.txt pytest.ini /app/
+RUN chmod +x /app/backend/app_start.sh
 
 RUN uv pip install -r requirements.txt --system
 
