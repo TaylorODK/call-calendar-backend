@@ -55,12 +55,12 @@ build_base_python_image:
       GPT_MODEL=$DEFINED_GPT_MODEL
       OPENAI_API_KEY=$DEFINED_OPENAI_API_KEY
       # Database credentials, connecting to DB from the application
-      DB_HOST=$DEFINED_DB_HOST
-      DB_NAME=$DEFINED_DB_NAME
-      DB_USER=$DEFINED_DB_USER
-      DB_PASSWORD=$DEFINED_DB_PASS
+      POSTGRES_HOST=$DEFINED_DB_HOST
+      POSTGRES_DB=$DEFINED_DB_NAME
+      POSTGRES_USER=$DEFINED_DB_USER
+      POSTGRES_PASSWORD=$DEFINED_DB_PASS
       DB_ENGINE=django.db.backends.postgresql
-      DB_PORT=5432
+      POSTGRES_PORT=5432
       # Redis
       REDIS_HOST=redis-${CI_PROJECT_NAME//_/-}-${ENVIRONMENT}
       REDIS_DEFAULT_DB_NUM=0
