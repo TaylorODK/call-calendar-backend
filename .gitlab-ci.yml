@@ -27,9 +27,7 @@ build_base_python_image:
     - docker push "$BASE_IMAGE"
     - docker push "$BASE_IMAGE_CACHE"
   only:
-    - dev
-    - test
-    - main
+    - prod
 
 .deploy_helm: &deploy_helm
   stage: deploy
