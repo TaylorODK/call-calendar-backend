@@ -6,7 +6,7 @@ storage:
 
 microservices:
   app:
-    command: "/app/backend/app_start.sh"
+    command: "/app/app_start.sh"
     pullPolicy: Always
     replicaCount: 1
     imagePullSecrets: "ylab-gitlab-registry"
