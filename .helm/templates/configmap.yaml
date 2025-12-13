@@ -1,0 +1,29 @@
+{{- $microservice := .Values.configMap }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+  namespace: {{ $.Release.Name }}-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+data:
+  default.conf: |
+    upstream backend {
+    server app-{{ $.Release.Name }}-{{ $.Values.stage }}:8000;
+    }
+
+    server {
+      listen 80;
+      location / {
+        proxy_pass http://backend;
+        proxy_set_header Host $http_host;
+      }
+
+      location ~ ^/static/(static|media)/ {
+        root /app;
+      }
+    }

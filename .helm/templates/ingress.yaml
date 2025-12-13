@@ -1,0 +1,41 @@
+{{- range $microservice, $value := .Values.microservices }}
+{{- if and $value.ingress.enabled $value.ingress.hosts }}
+---
+{{- $svcPort := $value.ports.http -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+  {{- with $value.ingress.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  rules:
+    {{- range $value.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+            - path: {{ . }}
+              pathType: Prefix
+              backend:
+                service:
+                  name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+                  port:
+                    number: {{ $svcPort }}
+          {{- end }}
+    {{- end }}
+  {{- if $value.ingress.tls_enabled }}
+  tls:
+    - hosts:
+        - {{ $value.ingress.tls_site }}
+      secretName: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}-tls
+    {{- end }}
+{{- end }}
+{{- end }}

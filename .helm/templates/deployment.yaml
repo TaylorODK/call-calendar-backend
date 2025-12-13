@@ -1,0 +1,138 @@
+{{- range $microservice, $value := .Values.microservices }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  replicas: {{ $value.replicaCount }}
+  strategy:
+    type: {{ default "RollingUpdate" $value.updateStrategy }}
+  revisionHistoryLimit: {{ default "5" $value.revisionHistoryLimit }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+      app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+        app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    spec:
+      imagePullSecrets:
+        - name: ylab-gitlab-registry
+      containers:
+        - name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+          image: {{ $value.image | default $.Values.image }}
+          {{- if $value.command }}
+          command: ["bash", "-c", "{{ $value.command }}"]
+          {{- end }}
+          imagePullPolicy: {{ $value.pullPolicy }}
+          envFrom:
+            - secretRef:
+                name: {{ $.Release.Name }}-{{ $.Values.stage }}
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: K8S_POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: K8S_POD_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.podIP
+            - name: K8S_NODE_IP
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            {{- if $value.env }}
+            {{- range $env_key, $env_value := $value.env }}
+            - name: {{ $env_key}}
+              value: "{{ $env_value }}"
+            {{- end }}
+            {{- end }}
+          ports:
+            - name: http
+              containerPort: {{ $value.ports.http | default 80 }}
+              protocol: TCP
+          {{- if $value.volumeMounts }}
+          volumeMounts:
+          {{- range $volumeMounts_key, $volumeMounts_value := $value.volumeMounts }}
+          - name: {{ $volumeMounts_key}}
+            mountPath: {{ $volumeMounts_value }}
+          {{- end }}
+            {{- if $value.configMap }}
+          - name: {{ $value.configMap.volumeName}}
+            mountPath: {{ $value.configMap.mountPath}}
+            {{- end }}
+          {{- end }}
+          {{- if $value.probes }}
+          livenessProbe:
+            initialDelaySeconds: 60
+            timeoutSeconds: 10
+            {{- if or $value.probes.liveness_probe_path $value.probes.probe_path }}
+            httpGet:
+              path: {{ $value.probes.liveness_probe_path | default $value.probes.probe_path }}
+              port: {{ $value.probes.probe_port | default "http" }}
+            {{- end }}
+            {{- if $value.probes.custom_exec_command }}
+            exec:
+              command: ["bash", "-c", "{{ $value.probes.custom_exec_command }}"]
+            {{- end }}
+          readinessProbe:
+            successThreshold: 3
+            failureThreshold: 5
+            periodSeconds: 5
+            initialDelaySeconds: 1
+            timeoutSeconds: 10
+            {{- if or $value.probes.readiness_probe_path $value.probes.probe_path }}
+            httpGet:
+              path: {{ $value.probes.readiness_probe_path | default $value.probes.probe_path }}
+              port: {{ $value.probes.probe_port | default "http"  }}
+            {{- end }}
+            {{- if $value.probes.custom_exec_command }}
+            exec:
+              command: ["bash", "-c", "{{ $value.probes.custom_exec_command }}"]
+            {{- end }}
+          startupProbe:
+            {{- if or $value.probes.startup_probe_path $value.probes.probe_path }}
+            httpGet:
+              path: {{ $value.probes.startup_probe_path | default $value.probes.probe_path }}
+              port: {{ $value.probes.probe_port | default "http"  }}
+            {{- end }}
+            {{- if $value.probes.custom_exec_command }}
+            exec:
+              command: ["bash", "-c", "{{ $value.probes.custom_exec_command }}"]
+            {{- end }}
+            failureThreshold: 60
+            periodSeconds: 10
+          {{- end }}
+          resources:
+{{ toYaml $value.resources | indent 12 }}
+      restartPolicy: Always
+      {{- if $value.volumes }}
+      volumes:
+      {{- range $volumes_key, $volumes_value := $value.volumes }}
+        - name: {{ $volumes_key}}
+          persistentVolumeClaim:
+            claimName: {{ $.Release.Name }}-{{ $.Values.stage }}-pvc
+      {{- end }}
+        {{- if $value.configMap }}
+        - name: {{ $value.configMap.volumeName}}
+          configMap:
+            name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+        {{- end }}
+      {{- end }}
+{{- end }}

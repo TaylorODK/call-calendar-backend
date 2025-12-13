@@ -1,0 +1,143 @@
+stage: "prod"
+configMap: "nginx"
+storage:
+  url: //u447371.your-storagebox.de/backup
+  driverType: official
+
+microservices:
+  app:
+    command: "/app/backend/app_start.sh"
+    pullPolicy: Always
+    replicaCount: 1
+    imagePullSecrets: "ylab-gitlab-registry"
+    probes:
+      probe_path: "/admin"
+    updateStrategy: RollingUpdate
+    revisionHistoryLimit: 5
+    ports:
+      http: 8000
+    volumeMounts:
+      static-data: /app/static
+    resources:
+      limits:
+        cpu: 1
+        memory: 1024Mi
+      requests:
+        cpu: 0.1
+        memory: 256Mi
+    volumes:
+      static-data:
+    service:
+      port: 8000
+      type: ClusterIP
+    ingress:
+      enabled: false
+  celery-worker:
+    command: "celery -A calendar_backend worker -l info"
+    pullPolicy: Always
+    replicaCount: 1
+    imagePullSecrets: "ylab-gitlab-registry"
+    updateStrategy: RollingUpdate
+    revisionHistoryLimit: 5
+    env:
+      IS_CELERY_APP: "true"
+    ports:
+      http: 80
+    resources:
+      limits:
+        cpu: 1
+        memory: 1024Mi
+      requests:
+        cpu: 0.5
+        memory: 512Mi
+    service:
+      port: 80
+      type: ClusterIP
+    ingress:
+      enabled: false
+  celery-beat:
+    command: "celery -A calendar_backend beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    pullPolicy: Always
+    replicaCount: 1
+    imagePullSecrets: "ylab-gitlab-registry"
+    updateStrategy: RollingUpdate
+    revisionHistoryLimit: 5
+    env:
+      IS_CELERY_APP: "true"
+    ports:
+      http: 80
+    resources:
+      limits:
+        cpu: 100m
+        memory: 256Mi
+      requests:
+        cpu: 100m
+        memory: 256Mi
+    service:
+      port: 80
+      type: ClusterIP
+    ingress:
+      enabled: false
+  redis:
+    image: "redis:7.4.0-alpine"
+    pullPolicy: Always
+    replicaCount: 1
+    imagePullSecrets: "ylab-gitlab-registry"
+    updateStrategy: RollingUpdate
+    revisionHistoryLimit: 5
+    ports:
+      http: 6379
+    volumeMounts:
+      static-data: /data
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256Mi
+      requests:
+        cpu: 0.1
+        memory: 128Mi
+    volumes:
+      static-data:
+    service:
+      port: 6379
+      type: ClusterIP
+    ingress:
+      enabled: false
+  nginx:
+    image: "nginx:1.27-alpine"
+    pullPolicy: Always
+    replicaCount: 1
+    imagePullSecrets: "ylab-gitlab-registry"
+    probes:
+      probe_path: "/admin"
+    updateStrategy: RollingUpdate
+    revisionHistoryLimit: 5
+    ports:
+      http: 80
+    volumeMounts:
+      static-data: /app/static
+    resources:
+      limits:
+        cpu: 0.5
+        memory: 256Mi
+      requests:
+        cpu: 0.1
+        memory: 128Mi
+    volumes:
+      static-data:
+    configMap:
+      volumeName: nginx-config
+      mountPath: /etc/nginx/conf.d
+    service:
+      port: 80
+      type: ClusterIP
+    ingress:
+      annotations:
+        kubernetes.io/ingress.class: "nginx"
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+      enabled: true
+      tls_site: call-calendar-prod.ylab.website
+      tls_enabled: true
+      hosts:
+        - host: call-calendar-prod.ylab.website
+          paths: ["/"]
