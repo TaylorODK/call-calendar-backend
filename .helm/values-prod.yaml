@@ -33,7 +33,7 @@ microservices:
     ingress:
       enabled: false
   celery-worker:
-    command: "celery -A ./backend/calendar_backend worker -l info"
+    command: "celery -A /app/backend/calendar_backend worker -l info"
     pullPolicy: Always
     replicaCount: 1
     imagePullSecrets: "ylab-gitlab-registry"
@@ -56,7 +56,7 @@ microservices:
     ingress:
       enabled: false
   celery-beat:
-    command: "celery -A ./backend/calendar_backend beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    command: "celery -A /app/backend/calendar_backend beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler"
     pullPolicy: Always
     replicaCount: 1
     imagePullSecrets: "ylab-gitlab-registry"
