@@ -82,6 +82,7 @@ build_base_python_image:
       CELERY_ACCEPT_CONTENT=json
       CELERY_TASK_SERIALIZER=json
       EOL
+    - echo $KUBE_NAMESPACE
     - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply -f -
     - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
     - kubectl create secret generic ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} --from-env-file=.helm/.env -n ${KUBE_NAMESPACE//_/-}
