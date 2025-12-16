@@ -41,6 +41,10 @@ class EmailCheckViewSet(GenericViewSet):
             instance = serializer.save()
             logger.info(
                 f"Регистрация пользователя {instance.email}",
+                extra={
+                    "method": self.action,
+                    "status": status.HTTP_201_CREATED,
+                },
             )
             return Response(
                 {
@@ -48,6 +52,13 @@ class EmailCheckViewSet(GenericViewSet):
                 },
                 status=status.HTTP_201_CREATED,
             )
+        logger.info(
+            f"Ошибка регистрации пользователя {request.data["email"]}",
+            extra={
+                "method": self.action,
+                "status": status.HTTP_400_BAD_REQUEST,
+            },
+        )
         return Response(
             {
                 "detail": str(serializer.errors),
@@ -72,6 +83,10 @@ class EmailCheckViewSet(GenericViewSet):
             instance = serializer.save()
             logger.info(
                 f"Активация пользователя {instance.email}",
+                extra={
+                    "method": self.action,
+                    "status": status.HTTP_201_CREATED,
+                },
             )
             return Response(
                 {
@@ -79,6 +94,13 @@ class EmailCheckViewSet(GenericViewSet):
                 },
                 status=status.HTTP_201_CREATED,
             )
+        logger.info(
+            "Ошибка активации пользователя",
+            extra={
+                "method": self.action,
+                "status": status.HTTP_400_BAD_REQUEST,
+            },
+        )
         return Response(
             {
                 "detail": str(serializer.errors),

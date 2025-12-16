@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from event.views import EventShowView
+from event.views import EventShowView, always_ok
 
 router_v1 = DefaultRouter()
 router_v1.register("", EventShowView, basename="event")
@@ -9,4 +9,5 @@ router_v1.register("", EventShowView, basename="event")
 
 urlpatterns = [
     path("", include(router_v1.urls)),
+    path("healthcheck/", always_ok),
 ]

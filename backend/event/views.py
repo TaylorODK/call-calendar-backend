@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.viewsets import GenericViewSet
@@ -59,3 +60,7 @@ class EventShowView(GenericViewSet):
             },
             status=status.HTTP_200_OK,
         )
+
+
+def always_ok(request):
+    return HttpResponse("Ok")

@@ -182,7 +182,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "app": {
-            "format": "[%(asctime)s] [%(levelname)s] [%(path)s] [%(method)s-%(status)s] > %(message)s",
+            "format": "[%(asctime)s] [%(levelname)s] [%(method)s-%(status)s] > %(message)s",
             "datefmt": "%d-%m-%y %H:%M:%S",
         },
         "calendar": {

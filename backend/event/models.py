@@ -14,6 +14,7 @@ class Calendar(models.Model):
     key = models.CharField(
         verbose_name="Ключ от календаря",
         max_length=NAME_MAX_LENGTH,
+        help_text="Ключ необходимо указать с &tz_id=Europe/Moscow",
     )
 
     class Meta:
