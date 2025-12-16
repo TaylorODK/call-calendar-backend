@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata:
   name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
-  namespace: {{ $.Release.Name }}-{{ $.Values.stage }}
+  namespace: call-calendar-{{ $.Values.stage }}
   labels:
     app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
     app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}

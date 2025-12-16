@@ -4,7 +4,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ $.Release.Name }}-{{ $.Values.stage }}-pvc
-  namespace: {{ $.Release.Name }}-{{ $.Values.stage }}
+  namespace: call-calendar-{{ $.Values.stage }}
   labels:
     app.kubernetes.io/name: {{ $.Release.Name }}-{{ $.Values.stage }}
     app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
@@ -21,7 +21,7 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ $.Release.Name }}-{{ $.Values.stage }}-pvc
-  namespace: {{ $.Release.Name }}-{{ $.Values.stage }}
+  namespace: call-calendar-{{ $.Values.stage }}
   labels:
     app.kubernetes.io/name: {{ $.Release.Name }}-{{ $.Values.stage }}
     app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
