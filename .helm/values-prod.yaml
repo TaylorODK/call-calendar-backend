@@ -11,7 +11,7 @@ microservices:
     replicaCount: 1
     imagePullSecrets: "ylab-gitlab-registry"
     probes:
-      probe_path: "/admin"
+      probe_path: "/api/healthcheck"
     updateStrategy: RollingUpdate
     revisionHistoryLimit: 5
     ports:
@@ -109,7 +109,7 @@ microservices:
     replicaCount: 1
     imagePullSecrets: "ylab-gitlab-registry"
     probes:
-      probe_path: "/admin"
+      probe_path: "/api/healthcheck"
     updateStrategy: RollingUpdate
     revisionHistoryLimit: 5
     ports:
