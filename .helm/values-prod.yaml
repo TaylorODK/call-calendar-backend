@@ -17,7 +17,7 @@ microservices:
     ports:
       http: 8000
     volumeMounts:
-      static-data: /app/static
+      static-data: /app/backend/static
     resources:
       limits:
         cpu: 1
@@ -115,7 +115,7 @@ microservices:
     ports:
       http: 80
     volumeMounts:
-      static-data: /app/static
+      static-data: /app/backend/static
     resources:
       limits:
         cpu: 0.5
