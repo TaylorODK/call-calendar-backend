@@ -34,6 +34,17 @@ DEBUG = os.getenv("DEBUG")
 
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
 
+CORS_ALLOWED_ORIGINS = [
+    'https://call-calendar-prod.ylab.website',
+    'http://call-calendar-prod.ylab.website',
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://call-calendar-prod.ylab.website',
+    'http://call-calendar-prod.ylab.website',    
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
 
 # Application definition
 
