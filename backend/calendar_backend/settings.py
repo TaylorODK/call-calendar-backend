@@ -32,19 +32,17 @@ SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG")
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
-CORS_ALLOWED_ORIGINS = [
-    'https://call-calendar-prod.ylab.website',
-    'http://call-calendar-prod.ylab.website',
-]
+CORS_ALLOWED_ORIGINS = os.getenv(
+    "DJANGO_ALLOWED_ORIGINS",
+    "http://localhost,http://127.0.0.1",
+).split(",")
 
-CSRF_TRUSTED_ORIGINS = [
-    'https://call-calendar-prod.ylab.website',
-    'http://call-calendar-prod.ylab.website',    
-    'http://localhost:8000',
-    'http://127.0.0.1:8000',
-]
+CSRF_TRUSTED_ORIGINS = os.getenv(
+    "DJANGO_ALLOWED_ORIGINS",
+    "http://localhost,http://127.0.0.1",
+).split(",")
 
 # Application definition
 
