@@ -28,7 +28,7 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                 "и воспользуйтесь командой /email",
                 code=ErrorCodes.EMAIL_EXISTS,
             )
-        if f"@{email.split("@")[-1]}" not in ALLOWED_EMAIL:
+        if not any(str(email).endswith(i) for i in ALLOWED_EMAIL):
             raise serializers.ValidationError(
                 "❌ Ваш Email должен быть в домене ylab",
                 code=ErrorCodes.WRONG_DOMAIN,
