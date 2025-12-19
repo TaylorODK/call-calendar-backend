@@ -84,7 +84,7 @@ def update_or_create_event(
                 event.date_from.date() == timezone.localdate()
                 or date_from.date() == timezone.localdate()
             ):
-                subject = "Изменения в мероприятии"
+                subject = f"Изменения в мероприятии {event.title}"
                 message = f"{subject}: \n{". ".join(changed_fields.values())}"
     if created and date_from.date() == timezone.localdate():
         message = (

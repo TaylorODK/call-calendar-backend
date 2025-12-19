@@ -47,6 +47,7 @@ def send_telegram_message(
             "chat_id": user.telegram_id,
             "text": message,
             "parse_mode": "HTML",
+            "disable_web_page_preview": True,
         }
         response = requests.post(url, json=data)
         responses.append(response.json)

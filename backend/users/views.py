@@ -60,7 +60,9 @@ class EmailCheckViewSet(GenericViewSet):
             },
         )
         return Response(
-            list(serializer.errors.values())[0][0],
+            {
+                "detail": list(serializer.errors.values())[0][0],
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
 
@@ -100,6 +102,8 @@ class EmailCheckViewSet(GenericViewSet):
             },
         )
         return Response(
-            list(serializer.errors.values())[0][0],
+            {
+                "detail": list(serializer.errors.values())[0][0],
+            },
             status=status.HTTP_400_BAD_REQUEST,
         )
