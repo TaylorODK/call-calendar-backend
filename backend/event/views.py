@@ -18,7 +18,7 @@ class EventShowView(GenericViewSet):
         user = self.request.telegram_user
         base_q = Q(
             date_from__date=timezone.localdate(),
-            date_from__gt=timezone.now(),
+            date_till__gt=timezone.now(),
             calendar=user.calendar,
             users=user,
         )
