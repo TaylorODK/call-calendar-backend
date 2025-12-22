@@ -6,7 +6,7 @@ from django.utils import timezone
 from rest_framework import serializers
 
 from core.enums import ErrorCodes
-from core.constants import CODE_EXPIRATION_TIME
+from core.constants import CODE_EXPIRATION_TIME, ALLOWED_EMAIL
 from users.models import User, LoginCode
 
 
@@ -28,9 +28,9 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
                 "и воспользуйтесь командой /email",
                 code=ErrorCodes.EMAIL_EXISTS,
             )
-        if email.split("@")[-1] != "ylab.team":
+        if not any(str(email).endswith(i) for i in ALLOWED_EMAIL):
             raise serializers.ValidationError(
-                "❌ Ваш Email должен быть в домене @ylab.team",
+                "❌ Ваш Email должен быть в домене ylab",
                 code=ErrorCodes.WRONG_DOMAIN,
             )
         verification = LoginCode.objects.filter(email=email).first()
