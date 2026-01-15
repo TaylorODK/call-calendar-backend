@@ -155,6 +155,7 @@ def parse_ics(cal: Calendar) -> None:
                 rules,
             )
             new_events.append(regular_event)
+            continue
         if date_from.date() < timezone.localdate():
             continue
         new_event = update_or_create_event(
