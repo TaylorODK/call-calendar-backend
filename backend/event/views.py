@@ -1,12 +1,13 @@
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
-from event.models import Event
-from event.serializers import EventShowSerializer
+from core.constants import CHAT_ID, KEY
+from event.models import Event, Calendar
+from event.serializers import EventShowSerializer, UserEventsSerializer
 from event.permissions import TelegramUserPermission
 from users.models import User
 
@@ -44,6 +45,35 @@ class EventShowView(GenericViewSet):
     )
     def show_events(self, request):
         user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
+        chat_id = request.data.get("chat_id")
+        if chat_id == CHAT_ID:
+            events_qs = Event.objects.filter(
+                Q(
+                    date_from__date=timezone.localdate(),
+                    date_till__gt=timezone.now(),
+                ),
+            ).order_by(
+                "date_from",
+            )
+            calendar = Calendar.objects.get(
+                key=KEY,
+            )
+            queryset = User.objects.filter(
+                calendar=calendar,
+            ).prefetch_related(
+                Prefetch(
+                    "events",
+                    queryset=events_qs,
+                    to_attr="filtered_events",
+                ),
+            )
+            serializer = UserEventsSerializer(queryset, many=True)
+            return Response(
+                {
+                    "meetings": serializer.data,
+                },
+                status=status.HTTP_200_OK,
+            )
         if not user.is_active:
             return Response(
                 {
