@@ -68,9 +68,8 @@ class Event(BaseModel):
     )
     users = models.ManyToManyField(
         "users.User",
-        default=None,
+        related_name="events",
         blank=True,
-        null=True,
     )
 
     class Meta:
