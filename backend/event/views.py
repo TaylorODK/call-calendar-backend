@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
-from core.constants import CHAT_ID, KEY
+from core.constants import CHAT_ID, CALENDAR_KEY
 from event.models import Event, Calendar
 from event.serializers import EventShowSerializer, UserEventsSerializer
 from event.permissions import TelegramUserPermission
@@ -45,8 +45,17 @@ class EventShowView(GenericViewSet):
     )
     def show_events(self, request):
         user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
-        chat_id = request.data.get("chat_id")
-        if chat_id == CHAT_ID:
+        if not user.is_active:
+            return Response(
+                {
+                    "error": "Пользователь не был активирован,"
+                    " повторите регистрацию.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = UserEventsSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if serializer.validated_data.get("chat_id") == CHAT_ID:
             events_qs = Event.objects.filter(
                 Q(
                     date_from__date=timezone.localdate(),
@@ -56,7 +65,7 @@ class EventShowView(GenericViewSet):
                 "date_from",
             )
             calendar = Calendar.objects.get(
-                key=KEY,
+                key=CALENDAR_KEY,
             )
             queryset = User.objects.filter(
                 calendar=calendar,
@@ -68,22 +77,9 @@ class EventShowView(GenericViewSet):
                 ),
             )
             serializer = UserEventsSerializer(queryset, many=True)
-            return Response(
-                {
-                    "meetings": serializer.data,
-                },
-                status=status.HTTP_200_OK,
-            )
-        if not user.is_active:
-            return Response(
-                {
-                    "error": "Пользователь не был активирован,"
-                    " повторите регистрацию.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        queryset = self.get_queryset()
-        serializer = EventShowSerializer(queryset, many=True)
+        else:
+            queryset = self.get_queryset()
+            serializer = EventShowSerializer(queryset, many=True)
         return Response(
             {
                 "meetings": serializer.data,

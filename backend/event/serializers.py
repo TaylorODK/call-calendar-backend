@@ -28,12 +28,17 @@ class EventShowSerializer(serializers.ModelSerializer):
 
 
 class UserEventsSerializer(serializers.ModelSerializer):
-    events = EventShowSerializer(many=True, source="filtered_events")
+    chat_id = serializers.CharField(write_only=True)
+    events = EventShowSerializer(
+        many=True,
+        source="filtered_events",
+        read_only=True,
+    )
     username = serializers.SerializerMethodField()
 
     class Meta:
         model = User
-        fields = ("username", "events")
+        fields = ("username", "events", "chat_id")
 
     def get_username(self, instance):
         return instance.first_name or instance.email
