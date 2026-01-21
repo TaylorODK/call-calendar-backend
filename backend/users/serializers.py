@@ -115,3 +115,14 @@ class CodeConfirmSerializer(serializers.Serializer):
         user.is_active = True
         user.save(update_fields=["is_active"])
         return user
+
+
+class SetShowTimeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ("calendar_show_time",)
+
+    def update(self, instance, validated_data):
+        instance.calendar_show_time = validated_data["calendar_show_time"]
+        instance.save(update_fields=["calendar_show_time"])
+        return instance

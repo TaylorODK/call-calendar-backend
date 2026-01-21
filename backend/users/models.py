@@ -44,6 +44,12 @@ class User(AbstractUser):
         null=True,
         related_name="users",
     )
+    calendar_show_time = models.TimeField(
+        verbose_name="Время отображения календаря",
+        blank=True,
+        null=True,
+        default=None,
+    )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["telegram_id"]
     objects = UserManager()

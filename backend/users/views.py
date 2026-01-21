@@ -4,12 +4,17 @@ from typing import Type
 
 from rest_framework import status, serializers
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 
-from users.serializers import LoginCodeCreateSerializer, CodeConfirmSerializer
+from users.models import User
+from users.serializers import (
+    LoginCodeCreateSerializer,
+    CodeConfirmSerializer,
+    SetShowTimeSerializer,
+)
 
 
 logger = logging.getLogger("app")
@@ -106,4 +111,35 @@ class EmailCheckViewSet(GenericViewSet):
                 "detail": list(serializer.errors.values())[0][0],
             },
             status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    @action(
+        url_path="set_time",
+        detail=False,
+        methods=["PATCH"],
+        permission_classes=(IsAuthenticated,),
+    )
+    def set_show_time(self, request):
+        user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
+        if not user.is_active:
+            return Response(
+                {
+                    "error": "Пользователь не был активирован,"
+                    " повторите регистрацию.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = SetShowTimeSerializer(
+            user,
+            data=request.data,
+            partial=True,
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(
+            {
+                "message": "Установлено время отображения календаря",
+                "время": serializer.data["show_time"],
+            },
+            status=status.HTTP_200_OK,
         )

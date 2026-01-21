@@ -1,9 +1,14 @@
+import json
 import logging
-
+import requests
 from celery import shared_task
+from django_celery_beat.models import CrontabSchedule, PeriodicTask
 from django.core.mail import EmailMessage
+from django.db.models import Q
+from django.utils import timezone
 from calendar_backend import settings
-from users.models import LoginCode
+from event.models import Event
+from users.models import LoginCode, User
 
 
 logger = logging.getLogger("email")
@@ -30,3 +35,71 @@ def send_code_email(code_id):
     logger.info(
         f"Отправка кода на почту {request.email}",
     )
+
+
+@shared_task
+def create_event_schedule(user_id: int) -> None:
+    user = User.objects.get(id=user_id)
+    update_time = user.calendar_show_time
+    user_schedule, _ = CrontabSchedule.objects.get_or_create(
+        minute=str(update_time.minute),
+        hour=str(update_time.hour),
+        day_of_week="*",
+        day_of_month="*",
+        month_of_year="*",
+    )
+    PeriodicTask.objects.update_or_create(
+        name=f"send_events_schedule_for_user_{user.id}",
+        defaults={
+            "crontab": user_schedule,
+            "task": "users.tasks.send_events_for_active_users",
+            "args": json.dumps([user.id]),
+            "kwargs": "{}",
+            "enabled": True,
+        },
+    )
+
+
+@shared_task(
+    retry_kwargs={"max_retries": 5, "countdown": 5},
+    retry_backoff=False,
+    retry_jitter=True,
+)
+def send_events_for_active_users(user_id: int) -> None:
+    user = User.objects.select_related("calendar").get(id=user_id)
+    url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
+    base_q = Q(
+        date_from__date=timezone.localdate(),
+        date_till__gt=timezone.now(),
+        calendar=user.calendar,
+        users=user,
+    )
+    events = (
+        Event.objects.filter(
+            base_q,
+        )
+        .prefetch_related(
+            "users",
+        )
+        .select_related(
+            "calendar",
+        )
+        .order_by(
+            "date_from",
+        )
+    )
+    message = ""
+    if events.exists():
+        for event in events:
+            message.join = f"\n {event.title}"
+            message.join = f"\n {event.date_from} - {event.date_till}"
+            message.join = f"\n {event.description}"
+    else:
+        message = "Нет мероприятий в календаре на сегодня."
+    data = {
+        "chat_id": user.telegram_id,
+        "text": message,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+    requests.post(url, json=data)

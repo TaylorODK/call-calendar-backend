@@ -1,5 +1,4 @@
 import re
-
 from django.db import models
 
 from core.constants import NAME_MAX_LENGTH
