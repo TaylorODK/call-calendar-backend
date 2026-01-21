@@ -20,9 +20,7 @@ def update_shchedule_for_user(
     """
     Обновление графика про сохранении модели пользователя.
     """
-    print("signal_active")
     if not update_fields:
         return
     if instance.is_active and "calendar_show_time" in update_fields:
-        print("is_active")
         create_event_schedule.delay(user_id=instance.id)
