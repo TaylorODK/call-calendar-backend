@@ -1,6 +1,6 @@
 import re
 from django.db import models
-
+from django.utils import timezone
 from core.constants import NAME_MAX_LENGTH
 from core.models import BaseModel
 
@@ -83,3 +83,16 @@ class Event(BaseModel):
             self.star = "*" in self.title
             self.slash = bool(re.search(r"/+$", self.title))
         self.all_event = not self.star and not self.slash
+
+    def url_for_event(self):
+        text = self.description
+        url_pattern = r"https?://[^\s]+"
+        match = re.search(url_pattern, text)
+        return match.group() if match else None
+
+    def time_for_event(self):
+        date_from = timezone.localtime(self.date_from)
+        if self.date_till:
+            date_till = timezone.localtime(self.date_till)
+            return f"{date_from:%H:%M} - {date_till:%H:%M}"
+        return f"{date_from:%H:%M}"

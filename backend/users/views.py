@@ -4,11 +4,11 @@ from typing import Type
 
 from rest_framework import status, serializers
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
-
+from event.permissions import TelegramUserPermission
 from users.models import User
 from users.serializers import (
     LoginCodeCreateSerializer,
@@ -116,8 +116,8 @@ class EmailCheckViewSet(GenericViewSet):
     @action(
         url_path="set_time",
         detail=False,
-        methods=["PATCH"],
-        permission_classes=(IsAuthenticated,),
+        methods=["POST"],
+        permission_classes=(TelegramUserPermission,),
     )
     def set_show_time(self, request):
         user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
@@ -138,8 +138,7 @@ class EmailCheckViewSet(GenericViewSet):
         serializer.save()
         return Response(
             {
-                "message": "Установлено время отображения календаря",
-                "время": serializer.data["show_time"],
+                "confirm": "Время установлено",
             },
             status=status.HTTP_200_OK,
         )

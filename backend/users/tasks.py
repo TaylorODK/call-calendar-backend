@@ -88,12 +88,18 @@ def send_events_for_active_users(user_id: int) -> None:
             "date_from",
         )
     )
-    message = ""
+
     if events.exists():
+        letters = ["📅 Ваши созвоны на сегодня:"]
+        number = 1
         for event in events:
-            message.join = f"\n {event.title}"
-            message.join = f"\n {event.date_from} - {event.date_till}"
-            message.join = f"\n {event.description}"
+            event_url = event.url_for_event()
+            event_time = event.time_for_event()
+            letters.append(f"\n{number}. {event.title}")
+            letters.append(f"\n🕐 {event_time}")
+            letters.append(f"\n🔗 ссылка: {event_url}\n")
+            number += 1
+        message = "".join(letters)
     else:
         message = "Нет мероприятий в календаре на сегодня."
     data = {

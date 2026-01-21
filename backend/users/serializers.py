@@ -118,11 +118,13 @@ class CodeConfirmSerializer(serializers.Serializer):
 
 
 class SetShowTimeSerializer(serializers.ModelSerializer):
+    time = serializers.TimeField()
+
     class Meta:
         model = User
-        fields = ("calendar_show_time",)
+        fields = ("time",)
 
     def update(self, instance, validated_data):
-        instance.calendar_show_time = validated_data["calendar_show_time"]
+        instance.calendar_show_time = validated_data["time"]
         instance.save(update_fields=["calendar_show_time"])
         return instance
