@@ -90,21 +90,22 @@ def send_events_for_active_users(user_id: int) -> None:
     )
 
     if events.exists():
-        letters = ["📅 Ваши созвоны на сегодня:"]
-        number = 1
-        for event in events:
+        letters = "<b>📅 Ваши созвоны на сегодня:</b>\n\n"
+        for i, event in enumerate(events, 1):
             event_url = event.url_for_event()
             event_time = event.time_for_event()
-            letters.append(f"\n{number}. {event.title}")
-            letters.append(f"\n🕐 {event_time}")
-            letters.append(f"\n🔗 ссылка: {event_url}\n")
-            number += 1
-        message = "".join(letters)
+            letters += f"<b>{i}. {event.title.strip()}</b>\n"
+            letters += f"   🕐 {event_time}\n"
+            if event_url:
+                event_url = event_url.strip().rstrip('\\"')
+                letters += f"   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
+            else:
+                letters += "   🔗 Ссылка не предоставлена.\n\n"
     else:
-        message = "Нет мероприятий в календаре на сегодня."
+        letters = "Нет мероприятий в календаре на сегодня."
     data = {
         "chat_id": user.telegram_id,
-        "text": message,
+        "text": letters,
         "parse_mode": "HTML",
         "disable_web_page_preview": True,
     }
