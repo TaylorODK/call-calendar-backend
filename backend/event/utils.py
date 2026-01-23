@@ -18,7 +18,7 @@ def set_users_for_event(
 ) -> None:
     cal = event.calendar
     event.check_for_star_slash()
-    event.save(update_fields=["star", "slash", "all_event"])
+    event.save(update_fields=["star", "slash", "aiterus", "all_event"])
     if bool(re.search(r"/\*$", event.title)):
         users = User.objects.filter(
             Q(show_star_events=True) | Q(show_slash_events=True),
@@ -28,6 +28,8 @@ def set_users_for_event(
         users = User.objects.filter(calendar=cal, show_star_events=True)
     elif bool(re.search(r"/$", event.title)):
         users = User.objects.filter(calendar=cal, show_slash_events=True)
+    elif bool(re.search(r"", event.title)):
+        users = User.objects.filter(calendar=cal, show_aiterus=True)
     else:
         users = User.objects.filter(
             calendar=cal,
