@@ -28,11 +28,12 @@ def set_users_for_event(
         users = User.objects.filter(calendar=cal, show_star_events=True)
     elif bool(re.search(r"/$", event.title)):
         users = User.objects.filter(calendar=cal, show_slash_events=True)
-    elif bool(re.search(r"", event.title)):
+    elif bool(re.search(r"\b[Аа][ий]терус\b", event.title)):
         users = User.objects.filter(calendar=cal, show_aiterus=True)
     else:
         users = User.objects.filter(
             calendar=cal,
+            show_aiterus=False,
         )
     event.users.set(users)
 

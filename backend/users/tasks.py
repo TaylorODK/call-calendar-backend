@@ -2,7 +2,7 @@ import json
 import logging
 import requests
 from celery import shared_task
-from django_celery_beat.models import CrontabSchedule, PeriodicTask
+from django_celery_beat.models import CrontabSchedule, ClockedSchedule, PeriodicTask
 from django.core.mail import EmailMessage
 from django.db.models import Q
 from django.utils import timezone
@@ -110,3 +110,13 @@ def send_events_for_active_users(user_id: int) -> None:
         "disable_web_page_preview": True,
     }
     requests.post(url, json=data)
+
+
+@shared_task
+def clear_crontab() -> None:
+    CrontabSchedule.objects.filter(
+        periodictask__isnull=True,
+    ).delete()
+    ClockedSchedule.objects.filter(
+        periodictask__isnull=True,
+    ).delete()
