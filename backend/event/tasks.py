@@ -96,9 +96,7 @@ def create_task_for_alert(event_id: int) -> None:
 def send_alert(event_id: int) -> None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     event = Event.objects.get(id=event_id)
-    if event:
-        if event.date_from < timezone.now():
-            return
+    if event and event.date_from < timezone.now():
         users = event.users.all()
         letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
         event_url = event.url_for_event()
