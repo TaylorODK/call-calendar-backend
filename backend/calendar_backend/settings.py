@@ -179,6 +179,10 @@ CELERY_BEAT_SCHEDULE = {
         "task": "event.tasks.clear_old_events",
         "schedule": crontab(hour=0, minute=0),
     },
+    "clear_empty_crontab_every_day": {
+        "task": "users.tasks.clear_crontab",
+        "schedule": crontab(hour=0, minute=0),
+    },
 }
 
 # BOT

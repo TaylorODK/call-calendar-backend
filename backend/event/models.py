@@ -60,6 +60,10 @@ class Event(BaseModel):
         verbose_name="Общее мероприятие",
         default=False,
     )
+    aiterus = models.BooleanField(
+        verbose_name="Аитерус",
+        default=False,
+    )
     calendar = models.ForeignKey(
         Calendar,
         on_delete=models.CASCADE,
@@ -82,7 +86,8 @@ class Event(BaseModel):
         else:
             self.star = "*" in self.title
             self.slash = bool(re.search(r"/+$", self.title))
-        self.all_event = not self.star and not self.slash
+            self.aiterus = bool(re.search(r"\b[Аа][ий]терус\b", self.title))
+        self.all_event = not self.star and not self.slash and not self.aiterus
 
     def url_for_event(self):
         text = self.description

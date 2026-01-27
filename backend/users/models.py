@@ -37,6 +37,10 @@ class User(AbstractUser):
         verbose_name="Показывать мероприятия со слэшем",
         default=False,
     )
+    show_aiterus = models.BooleanField(
+        verbose_name="Показывать мероприятия Аитерус",
+        default=False,
+    )
     calendar = models.ForeignKey(
         "event.Calendar",
         on_delete=models.CASCADE,
