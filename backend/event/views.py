@@ -54,8 +54,12 @@ class EventShowView(GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         serializer = UserEventsSerializer(data=request.data)
+        print(request.data.get("chat_id"))
         serializer.is_valid(raise_exception=True)
+        print(serializer.validated_data.get("chat_id"))
+        print(CHAT_ID)
         if serializer.validated_data.get("chat_id") == CHAT_ID:
+            print("True")
             events_qs = Event.objects.filter(
                 Q(
                     date_from__date=timezone.localdate(),

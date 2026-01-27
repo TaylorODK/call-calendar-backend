@@ -8,6 +8,7 @@ from django.db.models import Q
 from django.utils import timezone
 from event.models import Calendar, Event
 from users.models import User
+from users.tasks import clear_crontab
 
 
 calendar_logger = logging.getLogger("calendar")
@@ -49,6 +50,7 @@ def update_or_create_event(
 ) -> Event | None:
     message = "Empty"
     subject = ""
+    clear_crontab()
     event, created = Event.objects.get_or_create(
         uid=uid,
         defaults={

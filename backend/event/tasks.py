@@ -96,19 +96,22 @@ def create_task_for_alert(event_id: int) -> None:
 def send_alert(event_id: int) -> None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     event = Event.objects.get(id=event_id)
-    users = event.users.all()
-    letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
-    event_url = event.url_for_event()
-    if event_url:
-        event_url = event_url.strip().rstrip('\\"')
-        letter += f"   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
-    else:
-        letter += "   🔗 Ссылка не предоставлена.\n\n"
-    for user in users:
-        data = {
-            "chat_id": user.telegram_id,
-            "text": letter,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        requests.post(url, json=data)
+    if event:
+        if event.date_from < timezone.now():
+            return
+        users = event.users.all()
+        letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
+        event_url = event.url_for_event()
+        if event_url:
+            event_url = event_url.strip().rstrip('\\"')
+            letter += f"   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
+        else:
+            letter += "   🔗 Ссылка не предоставлена.\n\n"
+        for user in users:
+            data = {
+                "chat_id": user.telegram_id,
+                "text": letter,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            requests.post(url, json=data)

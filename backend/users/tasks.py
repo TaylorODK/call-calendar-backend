@@ -119,4 +119,8 @@ def clear_crontab() -> None:
     ).delete()
     ClockedSchedule.objects.filter(
         periodictask__isnull=True,
+        clocked_time__lt=timezone.now(),
+    ).delete()
+    PeriodicTask.objects.filter(
+        clocked__clocked_time__lt=timezone.now(),
     ).delete()
