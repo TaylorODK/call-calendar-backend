@@ -56,7 +56,6 @@ class EventShowView(GenericViewSet):
         serializer = UserEventsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         if serializer.validated_data.get("chat_id") == CHAT_ID:
-            print("True")
             events_qs = Event.objects.filter(
                 Q(
                     date_from__date=timezone.localdate(),
