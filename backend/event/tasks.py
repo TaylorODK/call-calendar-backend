@@ -69,23 +69,24 @@ def clear_old_events() -> None:
 @shared_task
 def create_task_for_alert(event_id: int) -> None:
     event = Event.objects.get(id=event_id)
-    alert_time = event.date_from - timedelta(minutes=15)
-    if alert_time <= timezone.now():
-        send_alert(event_id)
-        return
-    clocked, _ = ClockedSchedule.objects.get_or_create(
-        clocked_time=alert_time,
-    )
-    PeriodicTask.objects.update_or_create(
-        name=f"alert_for_event_{event_id}",
-        defaults={
-            "task": "event.tasks.send_alert",
-            "clocked": clocked,
-            "one_off": True,
-            "args": json.dumps([event_id]),
-            "enabled": True,
-        },
-    )
+    if event:
+        alert_time = event.date_from - timedelta(minutes=15)
+        if alert_time <= timezone.now():
+            send_alert(event_id)
+            return
+        clocked, _ = ClockedSchedule.objects.get_or_create(
+            clocked_time=alert_time,
+        )
+        PeriodicTask.objects.update_or_create(
+            name=f"alert_for_event_{event_id}",
+            defaults={
+                "task": "event.tasks.send_alert",
+                "clocked": clocked,
+                "one_off": True,
+                "args": json.dumps([event_id]),
+                "enabled": True,
+            },
+        )
 
 
 @shared_task(
@@ -96,7 +97,7 @@ def create_task_for_alert(event_id: int) -> None:
 def send_alert(event_id: int) -> None:
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     event = Event.objects.get(id=event_id)
-    if event and event.date_from < timezone.now():
+    if event and event.date_from > timezone.now():
         users = event.users.all()
         letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
         event_url = event.url_for_event()
