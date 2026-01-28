@@ -64,8 +64,6 @@ class EventShowView(GenericViewSet):
             ).order_by(
                 "date_from",
             )
-            print(CALENDAR_KEY)
-            print(Calendar.objects.first().key)
             calendar = Calendar.objects.get(
                 key=CALENDAR_KEY,
             )
