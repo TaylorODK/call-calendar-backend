@@ -124,7 +124,6 @@ def parse_ics(cal: Calendar) -> None:
     url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
     try:
         events = requests.get(url)
-        print(type(events))
         events.raise_for_status()
     except requests.exceptions.RequestException as e:
         calendar_logger.error(
