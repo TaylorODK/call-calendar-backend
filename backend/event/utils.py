@@ -124,6 +124,7 @@ def parse_ics(cal: Calendar) -> None:
     url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
     try:
         events = requests.get(url)
+        print(type(events))
         events.raise_for_status()
     except requests.exceptions.RequestException as e:
         calendar_logger.error(
@@ -256,7 +257,7 @@ def parse_rule(rrule):
     }
 
 
-def events_for_group(events_qs: QuerySet[Event]) -> list:
+def events_for_group(events_qs: QuerySet[Event], no_events: bool = True) -> list:
     results = []
     star_events = events_qs.filter(star=True)
     slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
@@ -265,9 +266,9 @@ def events_for_group(events_qs: QuerySet[Event]) -> list:
     results.append(get_result_for_user("Анна", star_events))
     results.append(get_result_for_user("Олеся", star_events))
     results.append(get_result_for_user("Аитерус", aiterus_events))
-    no_events = (
-        True if (type(result["events"]) is None for result in results) else False
-    )
+    for result in results:
+        if result["events"] is not None:
+            no_events = False
     return results if not no_events else []
 
 
