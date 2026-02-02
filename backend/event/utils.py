@@ -4,9 +4,10 @@ import requests
 from datetime import datetime
 from typing import Optional
 from icalendar import Calendar as ICalendar
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 from django.utils import timezone
 from event.models import Calendar, Event
+from event.serializers import EventShowSerializer
 from users.models import User
 
 
@@ -252,4 +253,36 @@ def parse_rule(rrule):
         "BYDAY": rrule.get("BYDAY", []),
         "INTERVAL": int(rrule.get("INTERVAL", [1])[0]),
         "UNTIL": rrule.get("UNTIL", [None])[0],
+    }
+
+
+def events_for_group(events_qs: QuerySet[Event], no_events: bool = True) -> list:
+    results = []
+    star_events = events_qs.filter(star=True)
+    slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
+    aiterus_events = events_qs.filter(aiterus=True)
+    results.append(get_result_for_user("Павел", slash_events))
+    results.append(get_result_for_user("Анна", star_events))
+    results.append(get_result_for_user("Олеся", star_events))
+    results.append(get_result_for_user("Аитерус", aiterus_events))
+    for result in results:
+        if result["events"] is not None:
+            no_events = False
+    return results if not no_events else []
+
+
+def get_result_for_user(
+    username: str,
+    type_events: QuerySet[Event],
+) -> dict:
+    return {
+        "username": username,
+        "events": (
+            EventShowSerializer(
+                type_events,
+                many=True,
+            ).data
+            if type_events
+            else None
+        ),
     }

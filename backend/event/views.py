@@ -1,4 +1,4 @@
-from django.db.models import Q, Prefetch
+from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.decorators import action
@@ -6,9 +6,10 @@ from rest_framework.viewsets import GenericViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from core.constants import CHAT_ID, CALENDAR_KEY
-from event.models import Event, Calendar
+from event.models import Event
 from event.serializers import EventShowSerializer, UserEventsSerializer
 from event.permissions import TelegramUserPermission
+from event.utils import events_for_group
 from users.models import User
 
 
@@ -60,32 +61,28 @@ class EventShowView(GenericViewSet):
                 Q(
                     date_from__date=timezone.localdate(),
                     date_till__gt=timezone.now(),
+                    calendar__key=CALENDAR_KEY,
                 ),
             ).order_by(
                 "date_from",
             )
-            calendar = Calendar.objects.get(
-                key=CALENDAR_KEY,
+            serializer = events_for_group(events_qs)
+            return Response(
+                {
+                    "meetings": serializer,
+                },
+                status=status.HTTP_200_OK,
             )
-            queryset = User.objects.filter(
-                calendar=calendar,
-            ).prefetch_related(
-                Prefetch(
-                    "events",
-                    queryset=events_qs,
-                    to_attr="filtered_events",
-                ),
-            )
-            serializer = UserEventsSerializer(queryset, many=True)
         else:
-            queryset = self.get_queryset()
-            serializer = EventShowSerializer(queryset, many=True)
-        return Response(
-            {
-                "meetings": serializer.data,
-            },
-            status=status.HTTP_200_OK,
-        )
+            return Response(
+                {
+                    "meetings": EventShowSerializer(
+                        self.get_queryset(),
+                        many=True,
+                    ).data,
+                },
+                status=status.HTTP_200_OK,
+            )
 
 
 def always_ok(request):
