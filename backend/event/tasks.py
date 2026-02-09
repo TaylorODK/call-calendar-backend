@@ -5,8 +5,9 @@ from celery import shared_task
 import requests
 from django_celery_beat.models import ClockedSchedule, PeriodicTask
 from django.utils import timezone
-from event.utils import parse_ics
 from event.models import Calendar, Event
+from event.v2.dto import ServicedEvent, PreparedData
+from event.v2.services.calendar_service import CalendarService
 from calendar_backend.settings import BOT_TOKEN
 
 
@@ -20,7 +21,7 @@ def run_base_update(calendar_id: int) -> None:
 
     cal = Calendar.objects.get(id=calendar_id)
     calendar_logger.info(f"Обновление календаря '{cal.title}'")
-    parse_ics(cal)
+    CalendarService(cal).__call__()
 
 
 @shared_task
@@ -33,27 +34,40 @@ def start_update_calendar() -> None:
 
 @shared_task
 def send_telegram_message(
-    message: str,
-    subject: str,
-    event: Event,
+    serviced_event: ServicedEvent | None = None,
+    prepared_data: PreparedData | None = None,
 ) -> list[dict] | None:
     """
-    Таска по отправке сообщения в телеграм пользователей,
-    связанных с мероприятием.
+    Таска по отправке сообщения в телеграм пользователей:
+    Возможны 2 сценария для отправки сообщений:
+    1) по результатам парсинга календаря serviced_event
+    (создание, изменеие, удаление мероприятия);
+    2) по результатам обработки запроса пользователя
+    на предоставление данных календаря prepared_data
     """
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     responses = []
-    for user in event.users.all():
+    if serviced_event:
+        for user in serviced_event.users.all():
+            data = {
+                "chat_id": user.telegram_id,
+                "text": serviced_event.message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            response = requests.post(url, json=data)
+            responses.append(response.json)
+            bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
+    elif prepared_data:
         data = {
-            "chat_id": user.telegram_id,
-            "text": message,
+            "chat_id": prepared_data.telegram_id,
+            "text": prepared_data.message,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }
         response = requests.post(url, json=data)
         responses.append(response.json)
-        bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
     return responses if responses else None
 
 
@@ -114,3 +128,12 @@ def send_alert(event_id: int) -> None:
                 "disable_web_page_preview": True,
             }
             requests.post(url, json=data)
+
+
+@shared_task
+def delete_task_for_alert(event_id):
+    task = PeriodicTask.objects.get(
+        name=f"alert_for_event_{event_id}",
+    )
+    if task:
+        task.delete()

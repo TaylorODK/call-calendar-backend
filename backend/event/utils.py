@@ -16,8 +16,8 @@ calendar_logger = logging.getLogger("calendar")
 
 def set_users_for_event(
     event: Event,
+    cal: Calendar,
 ) -> None:
-    cal = event.calendar
     event.check_for_star_slash()
     event.save(update_fields=["star", "slash", "aiterus", "all_event"])
     if bool(re.search(r"/\*$", event.title)):
@@ -36,7 +36,8 @@ def set_users_for_event(
             calendar=cal,
             show_aiterus=False,
         )
-    event.users.set(users)
+    for user in users:
+        event.users.add(user)
 
 
 def update_or_create_event(
@@ -58,10 +59,16 @@ def update_or_create_event(
             "url_calendar": url_calendar,
             "date_from": date_from,
             "date_till": date_till,
-            "calendar": cal,
         },
     )
-    if not created:
+    if not created and cal not in event.calendar.all():
+        event.calendar.add(cal)
+        message = (
+            f"Новое мероприятие: \n '{title}' ,"
+            f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
+        )
+        subject = "Новое мероприятие"
+    elif not created and cal in event.calendar.all():
         changed_fields = {}
         if event.title != title:
             event.title = title
@@ -91,17 +98,18 @@ def update_or_create_event(
                 subject = f"Изменения в мероприятии {event.title}"
                 message = f"{subject}: \n{". ".join(changed_fields.values())}"
     if created and date_from.date() == timezone.localdate():
+        event.calendar.add(cal)
         message = (
             f"Новое мероприятие: \n '{title}' ,"
             f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
         )
         subject = "Новое мероприятие"
         calendar_logger.info(f"Создание нового события {event.title}")
-    set_users_for_event(event)
+    set_users_for_event(event, cal)
     if message != "Empty":
         from event.tasks import send_telegram_message
 
-        send_telegram_message(message, subject, event)
+        send_telegram_message(cal, message, subject, event)
     return event
 
 
@@ -212,11 +220,11 @@ def create_this_day_regular_event(
                         "url_calendar": url_calendar,
                         "date_from": new_date_from,
                         "date_till": new_date_till,
-                        "calendar": cal,
                     },
                 )
-                set_users_for_event(event)
+                set_users_for_event(event, cal)
                 if created:
+                    event.calendar.add(cal)
                     calendar_logger.info(
                         f"Создание нового WEEKLY события {event.title}",
                     )
@@ -236,11 +244,11 @@ def create_this_day_regular_event(
                     "url_calendar": url_calendar,
                     "date_from": new_date_from,
                     "date_till": new_date_till,
-                    "calendar": cal,
                 },
             )
-            set_users_for_event(event)
+            set_users_for_event(event, cal)
             if created:
+                event.calendar.add(cal)
                 calendar_logger.info(
                     f"Создание нового MONTHLY события {event.title}",
                 )
@@ -256,7 +264,10 @@ def parse_rule(rrule):
     }
 
 
-def events_for_group(events_qs: QuerySet[Event], no_events: bool = True) -> list:
+def events_for_group(
+    events_qs: QuerySet[Event],
+    no_events: bool = True,
+) -> list | None:
     results = []
     star_events = events_qs.filter(star=True)
     slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))

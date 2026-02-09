@@ -5,7 +5,7 @@ from event.models import Calendar, Event
 
 @admin.register(Calendar)
 class CalendarAdmin(admin.ModelAdmin):
-    list_display = ("id", "key")
+    list_display = ("id", "key", "title")
     list_display_links = ("key",)
     search_fields = ("id",)
 

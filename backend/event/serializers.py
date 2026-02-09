@@ -42,3 +42,8 @@ class UserEventsSerializer(serializers.ModelSerializer):
 
     def get_username(self, instance):
         return instance.first_name or instance.email
+
+
+class TelegramDataSerializer(serializers.Serializer):
+    telegram_id = serializers.CharField()
+    chat_id = serializers.CharField()

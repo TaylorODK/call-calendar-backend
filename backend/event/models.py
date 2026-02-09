@@ -64,10 +64,10 @@ class Event(BaseModel):
         verbose_name="Аитерус",
         default=False,
     )
-    calendar = models.ForeignKey(
+    calendar = models.ManyToManyField(
         Calendar,
-        on_delete=models.CASCADE,
         related_name="events",
+        blank=True,
     )
     users = models.ManyToManyField(
         "users.User",

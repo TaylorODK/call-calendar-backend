@@ -1,0 +1,164 @@
+from dataclasses import dataclass
+from django.db.models import Q, QuerySet
+from django.utils import timezone
+from core.constants import CHAT_ID, CALENDAR_KEY
+from event.models import Calendar, Event
+from event.v2.dto import RequestForCalendar, PreparedData
+from event.serializers import EventShowSerializer
+from users.models import User
+
+
+@dataclass
+class ShowCalendarService:
+    request: RequestForCalendar
+
+    def __call__(self, *args, **kwds) -> PreparedData:
+        if self.request.chat_id == CHAT_ID:
+            return PreparedData(
+                data=self.hardcode_request(),
+                message=None,
+                telegram_id=self.request.telegram_id,
+            )
+        prepared_data = self.request_for_regular_calendar()
+        if prepared_data.message:
+            from event.tasks import send_telegram_message
+
+            send_telegram_message(
+                prepared_data=prepared_data,
+            )
+        return prepared_data
+
+    def hardcode_request(self) -> list:
+        events_qs = Event.objects.filter(
+            Q(
+                date_from__date=timezone.localdate(),
+                date_till__gt=timezone.now(),
+                calendar__key=CALENDAR_KEY,
+            ),
+        ).order_by(
+            "date_from",
+        )
+        data = self.hardcode_events_for_group(events_qs)
+        return data
+
+    def hardcode_events_for_group(
+        self,
+        events_qs: QuerySet[Event],
+        no_events: bool = True,
+    ) -> list:
+        results = []
+        star_events = events_qs.filter(star=True)
+        slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
+        aiterus_events = events_qs.filter(aiterus=True)
+        results.append(self.hardcode_get_result_for_user("Павел", slash_events))
+        results.append(self.hardcode_get_result_for_user("Анна", star_events))
+        results.append(self.hardcode_get_result_for_user("Олеся", star_events))
+        results.append(
+            self.hardcode_get_result_for_user("Аитерус", aiterus_events),
+        )
+        for result in results:
+            if result["events"] is not None:
+                no_events = False
+        return results if not no_events else []
+
+    def hardcode_get_result_for_user(
+        self,
+        username: str,
+        type_events: QuerySet[Event],
+    ) -> dict:
+        return {
+            "username": username,
+            "events": (
+                EventShowSerializer(
+                    type_events,
+                    many=True,
+                ).data
+                if type_events.exists()
+                else None
+            ),
+        }
+
+    def request_for_regular_calendar(self, message: str = "") -> PreparedData:
+        data: list = []
+        prepared_data = PreparedData(
+            data=data,
+            message=message,
+            telegram_id=self.request.telegram_id,
+        )
+        user, prepared_data.message = self.try_find_user()
+        if not user:
+            return prepared_data
+        if not user.is_active:
+            prepared_data.message = self.prepare_message_to_user(not_active=True)
+            return prepared_data
+        calendar, prepared_data.message = self.check_user_has_calendar(user)
+        if prepared_data.message or not calendar:
+            return prepared_data
+        queryset = (
+            Event.objects.filter(
+                date_from__date=timezone.localdate(),
+                date_till__gt=timezone.now(),
+                calendar=calendar,
+                users=user,
+            )
+            .prefetch_related(
+                "users",
+                "calendar",
+            )
+            .order_by(
+                "date_from",
+            )
+        )
+        prepared_data.data = EventShowSerializer(
+            queryset,
+            many=True,
+        ).data
+        return prepared_data
+
+    def try_find_user(
+        self,
+        message: str = "",
+    ) -> tuple[User | None, str | None]:
+        try:
+            user = User.objects.get(telegram_id=self.request.telegram_id)
+        except User.DoesNotExist:
+            return None, self.prepare_message_to_user(not_registered=True)
+        return user, message
+
+    def check_user_has_calendar(
+        self,
+        user: User,
+        message: str = "",
+    ) -> tuple[Calendar | None, str | None]:
+        if not user.calendar:
+            return None, self.prepare_message_to_user(no_calendar=True)
+        try:
+            calendar = Calendar.objects.get(id=user.calendar.id)
+        except Calendar.DoesNotExist:
+            return None, self.prepare_message_to_user(no_calendar=True)
+        return calendar, message
+
+    def prepare_message_to_user(
+        self,
+        not_registered: bool = False,
+        not_active: bool = False,
+        no_calendar: bool = False,
+        message: str = "Уважаемый пользователь, для получения "
+        "данных календаря, вам необходимо ",
+    ) -> str:
+        if not_registered:
+            message += "зарегистрироваться."
+            return message
+        elif not_active:
+            message += (
+                "продолжить регистрацию."
+                " Для этого просим подтвердить адрес вашей электронной почты."
+            )
+            return message
+        elif no_calendar:
+            message += (
+                "направить private_token "
+                "вашего Яндекс.Календаря в адрес администратора. "
+                "Контакты можно получить в /help."
+            )
+        return message
