@@ -9,6 +9,7 @@ from event.models import Calendar, Event
 from event.v2.dto import ServicedEvent, PreparedData
 from event.v2.services.calendar_service import CalendarService
 from calendar_backend.settings import BOT_TOKEN
+from core.constants import ALERT_TIME_BEFORE_EVENT
 
 
 bot_logger = logging.getLogger("bot")
@@ -85,7 +86,9 @@ def clear_old_events() -> None:
 def create_task_for_alert(event_id: int) -> None:
     event = Event.objects.get(id=event_id)
     if event:
-        alert_time = event.date_from - timedelta(minutes=15)
+        alert_time = event.date_from - timedelta(
+            minutes=ALERT_TIME_BEFORE_EVENT,
+        )
         if alert_time <= timezone.now():
             send_alert(event_id)
             return
@@ -114,7 +117,8 @@ def send_alert(event_id: int) -> None:
     event = Event.objects.get(id=event_id)
     if event and event.date_from > timezone.now():
         users = event.users.all()
-        letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
+        letter = f"<b>🕐 Через {ALERT_TIME_BEFORE_EVENT}"
+        letter += f" минут начнется созвон {event.title}</b>\n\n"
         event_url = event.url_for_event()
         if event_url:
             event_url = event_url.strip().rstrip('\\"')

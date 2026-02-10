@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from core.constants import CHAT_ID, CALENDAR_KEY
@@ -7,9 +8,8 @@ from event.serializers import EventShowSerializer
 from users.models import User
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ShowCalendarService:
-    request: RequestForCalendar
-
     def __call__(self, request: RequestForCalendar) -> PreparedData:
         if request.chat_id == CHAT_ID:
             return PreparedData(
@@ -48,9 +48,12 @@ class ShowCalendarService:
         star_events = events_qs.filter(star=True)
         slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
         aiterus_events = events_qs.filter(aiterus=True)
-        results.append(self.hardcode_get_result_for_user("Павел", slash_events))
-        results.append(self.hardcode_get_result_for_user("Анна", star_events))
-        results.append(self.hardcode_get_result_for_user("Олеся", star_events))
+        results.append(
+            self.hardcode_get_result_for_user("Павел", slash_events),
+        )
+        results.append(
+            self.hardcode_get_result_for_user("Анна/Олеся", star_events),
+        )
         results.append(
             self.hardcode_get_result_for_user("Аитерус", aiterus_events),
         )
@@ -170,7 +173,7 @@ class ShowCalendarService:
         elif no_calendar:
             message += (
                 "направить private_token "
-                "вашего Яндекс.Календаря в адрес администратора. "
-                "Контакты можно получить в /help."
+                "вашего Яндекс.Календаря в адрес администратора "
+                "@AnnnnnaAnna"
             )
         return message

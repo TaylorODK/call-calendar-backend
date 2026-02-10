@@ -127,3 +127,8 @@ class CodeConfirmSerializer(serializers.Serializer):
         user.is_active = True
         user.save(update_fields=["is_active"])
         return user
+
+
+class CheckRegistrationDataSerializer(serializers.Serializer):
+    telegram_id = serializers.IntegerField(required=True)
+    email = serializers.EmailField(required=True)

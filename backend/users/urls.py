@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 
-from users.views2 import EmailCheckViewSet
+from users.views import EmailCheckViewSet
 
 router_v1 = DefaultRouter()
 router_v1.register("", EmailCheckViewSet, basename="register")

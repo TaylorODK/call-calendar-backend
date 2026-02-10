@@ -2,6 +2,7 @@
 from users.v2.serializers.registration_serializers import (
     CodeConfirmSerializer,  # noqa
     LoginCodeCreateSerializer,  # noqa
+    CheckRegistrationDataSerializer,  # noqa
 )
 
 # Сериализатор для установки и изменения времени отображения календаря

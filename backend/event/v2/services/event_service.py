@@ -1,4 +1,4 @@
-from dataclasses import fields
+from dataclasses import dataclass, fields
 from datetime import date, datetime
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -13,6 +13,7 @@ from core.constants import BYDAY_MAP, CALENDAR_KEY
 from users.models import User
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
 class EventService:
     def __call__(
         self,

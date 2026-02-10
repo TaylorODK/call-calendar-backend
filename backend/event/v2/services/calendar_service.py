@@ -16,7 +16,7 @@ class CalendarService:
     Парсинг календаря.
     """
 
-    def __call__(self, cal: Calendar):
+    def __call__(self, cal: Calendar) -> None:
         parsing_url = f"{PARSE_URL}{cal.key}"
         events = self.send_request_to_url(parsing_url)
         calendar = self.get_icalendar_data(events.content)
