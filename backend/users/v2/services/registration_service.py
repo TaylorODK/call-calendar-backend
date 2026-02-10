@@ -19,7 +19,6 @@ class RegistrationService:
         )
         for check in checks:
             error = check(registration_data=registration_data)
-            print(error)
             if error:
                 return RegistrationAnswer(
                     error=error,
