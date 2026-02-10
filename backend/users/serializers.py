@@ -128,3 +128,8 @@ class SetShowTimeSerializer(serializers.ModelSerializer):
         instance.calendar_show_time = validated_data["time"]
         instance.save(update_fields=["calendar_show_time"])
         return instance
+
+
+class CheckRegistrationDataSerializer(serializers.Serializer):
+    telegram_id = serializers.IntegerField(required=True)
+    email = serializers.EmailField(required=True)

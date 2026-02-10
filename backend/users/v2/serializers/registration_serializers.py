@@ -4,7 +4,7 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 from core.enums import ErrorCodes
-from core.constants import CODE_EXPIRATION_TIME, ALLOWED_EMAIL
+from core.constants import CODE_EXPIRATION_TIME
 from users.models import User, LoginCode
 
 
@@ -27,44 +27,6 @@ class LoginCodeCreateSerializer(serializers.ModelSerializer):
         model = LoginCode
         fields = ("id", "code", "email", "telegram_id", "updated_at")
         read_only_fields = ("id", "code", "telegram_id", "updated_at")
-
-    def validate(self, data: dict[str, Any]) -> dict[str, Any]:
-        """
-        Валидация email и пользователя.
-        Валидация проводит следующую проверку:
-            - наличие активированного пользователя с email из запроса;
-            - соответствие требованиям по домену email;
-            - время отправки предыдущего кода на указанный email.
-        """
-
-        email = data["email"].strip().lower()
-        user = User.objects.filter(email=email).first()
-        if user and user.is_active:
-            raise serializers.ValidationError(
-                "❌ Активированный пользователь с таким Email уже существует, "
-                "пожалуйста, укажите другой email "
-                "и воспользуйтесь командой /email",
-                code=ErrorCodes.EMAIL_EXISTS,
-            )
-        if not any(str(email).endswith(i) for i in ALLOWED_EMAIL):
-            raise serializers.ValidationError(
-                "❌ Ваш Email должен быть в домене ylab",
-                code=ErrorCodes.WRONG_DOMAIN,
-            )
-        verification = LoginCode.objects.filter(email=email).first()
-        if verification:
-            expiration_time = verification.updated_at + timedelta(
-                minutes=CODE_EXPIRATION_TIME,
-            )
-            if timezone.now() < expiration_time:
-                raise serializers.ValidationError(
-                    "❌ время действия отправленного кода "
-                    f"{CODE_EXPIRATION_TIME} минут. "
-                    "Новый запрос команды /email можно сделать после "
-                    "истечения срока действия кода",
-                    code=ErrorCodes.CODE_NOT_EXPIRED,
-                )
-        return data
 
     @transaction.atomic
     def create(self, validated_data: dict[str, Any]) -> LoginCode:

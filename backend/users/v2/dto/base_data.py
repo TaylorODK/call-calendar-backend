@@ -2,7 +2,5 @@ from dataclasses import dataclass
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
-class PreparedData:
-    data: list
-    message: str | None
+class BaseData:
     telegram_id: str

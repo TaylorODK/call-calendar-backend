@@ -8,3 +8,4 @@ class ErrorCodes(IntEnum):
     ID_DONT_EXIST = 1004
     WRONG_CODE = 1005
     CODE_EXPIRED = 1006
+    HAVE_ACTIVATED_USER = 1007

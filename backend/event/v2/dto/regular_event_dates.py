@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class RegularEventDates:
     today: date
     week_number: int

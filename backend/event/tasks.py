@@ -21,7 +21,8 @@ def run_base_update(calendar_id: int) -> None:
 
     cal = Calendar.objects.get(id=calendar_id)
     calendar_logger.info(f"Обновление календаря '{cal.title}'")
-    CalendarService(cal).__call__()
+    parsing = CalendarService()
+    parsing(cal=cal)
 
 
 @shared_task

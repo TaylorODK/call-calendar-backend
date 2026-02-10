@@ -2,7 +2,7 @@ from datetime import datetime
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ParsedEvent:
     """
     Формат данных, ожидаемый для получения в результате

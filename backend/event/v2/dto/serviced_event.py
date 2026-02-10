@@ -4,7 +4,7 @@ from event.models import Event
 from users.models import User
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class ServicedEvent:
     message: str | None
     event: Event

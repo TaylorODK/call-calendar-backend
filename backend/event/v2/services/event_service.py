@@ -1,4 +1,4 @@
-from dataclasses import dataclass, fields
+from dataclasses import fields
 from datetime import date, datetime
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -13,50 +13,60 @@ from core.constants import BYDAY_MAP, CALENDAR_KEY
 from users.models import User
 
 
-@dataclass
 class EventService:
-    event: ParsedEvent
-    calendar: Calendar
-
-    def __call__(self, *args, **kwds) -> ServicedEvent | None:
+    def __call__(
+        self,
+        event: ParsedEvent,
+        calendar: Calendar,
+    ) -> ServicedEvent | None:
         dates = None
-        parsed_rules = self.calculate_parsed_rule()
+        parsed_rules = self.calculate_parsed_rule(event=event)
         if parsed_rules:
-            dates = self.calculate_dates_for_regular_event()
+            dates = self.calculate_dates_for_regular_event(event=event)
         if not self.check_if_event_today(
+            event=event,
             rule=parsed_rules if parsed_rules else None,
             dates=dates if dates else None,
         ):
             return None
-        serviced_event = self.create_event(dates=dates if dates else None)
+        serviced_event = self.create_event(
+            event=event,
+            calendar=calendar,
+            dates=dates if dates else None,
+        )
         if serviced_event:
             if serviced_event.message:
                 from event.tasks import send_telegram_message
 
                 send_telegram_message(serviced_event=serviced_event)
-            self.add_calendar_to_event(serviced_event=serviced_event)
+            self.add_calendar_to_event(
+                serviced_event=serviced_event,
+                calendar=calendar,
+            )
             self.add_users_to_event(serviced_event=serviced_event)
             self.remove_users_if_not_in_calendar(
                 serviced_event=serviced_event,
             )
-            if self.calendar.key == CALENDAR_KEY:
+            if calendar.key == CALENDAR_KEY:
                 self.hardcode_calendar(serviced_event=serviced_event)
             return serviced_event
         return None
 
     def create_event(
         self,
+        event: ParsedEvent,
+        calendar: Calendar,
         dates: RegularEventDates | None,
     ) -> ServicedEvent | None:
-        users = User.objects.filter(calendar=self.calendar)
+        users = User.objects.filter(calendar=calendar)
         new_event, created = Event.objects.get_or_create(
-            uid=self.event.uid,
+            uid=event.uid,
             defaults={
-                "title": self.event.title,
-                "description": self.event.description,
-                "url_calendar": self.event.url_calendar,
-                "date_from": (dates.new_date_from) if dates else self.event.date_from,
-                "date_till": (dates.new_date_till) if dates else self.event.date_till,
+                "title": event.title,
+                "description": event.description,
+                "url_calendar": event.url_calendar,
+                "date_from": (dates.new_date_from) if dates else event.date_from,
+                "date_till": (dates.new_date_till) if dates else event.date_till,
             },
         )
         message = self.generate_message(
@@ -67,6 +77,7 @@ class EventService:
         if not created and not dates:
             serviced_event = self.update_event(
                 event_to_update=new_event,
+                event=event,
                 users=users,
             )
             return serviced_event
@@ -79,14 +90,15 @@ class EventService:
     def update_event(
         self,
         event_to_update: Event,
+        event: ParsedEvent,
         users: QuerySet[User],
     ) -> ServicedEvent | None:
         changed_fields = {}
-        for field in fields(self.event):
+        for field in fields(event):
             if field.name == "rrule":
                 continue
-            new_value = getattr(self.event, field.name)
-            if not hasattr(self.event, field.name):
+            new_value = getattr(event, field.name)
+            if not hasattr(event, field.name):
                 continue
             old_value = getattr(event_to_update, field.name)
             if old_value != new_value:
@@ -140,10 +152,11 @@ class EventService:
 
     def add_calendar_to_event(
         self,
+        calendar: Calendar,
         serviced_event: ServicedEvent,
     ) -> None:
-        if self.calendar not in serviced_event.event.calendar.all():
-            serviced_event.event.calendar.add(self.calendar)
+        if calendar not in serviced_event.event.calendar.all():
+            serviced_event.event.calendar.add(calendar)
 
     def add_users_to_event(
         self,
@@ -163,23 +176,25 @@ class EventService:
 
     def calculate_parsed_rule(
         self,
+        event: ParsedEvent,
     ) -> ParsedRule | None:
-        if not self.event.rrule:
+        if not event.rrule:
             return None
         return ParsedRule(
-            FREQ=self.event.rrule.get("FREQ", [None])[0],
-            BYDAY=self.event.rrule.get("BYDAY", []),
-            INTERVAL=int(self.event.rrule.get("INTERVAL", [1])[0]),
-            UNTIL=self.event.rrule.get("UNTIL", [None])[0],
+            FREQ=event.rrule.get("FREQ", [None])[0],
+            BYDAY=event.rrule.get("BYDAY", []),
+            INTERVAL=int(event.rrule.get("INTERVAL", [1])[0]),
+            UNTIL=event.rrule.get("UNTIL", [None])[0],
         )
 
     def check_if_event_today(
         self,
+        event: ParsedEvent,
         rule: ParsedRule | None,
         dates: RegularEventDates | None,
     ) -> bool:
         if not rule or not dates:
-            if self.event.date_from.date() >= timezone.localdate():
+            if event.date_from.date() >= timezone.localdate():
                 return True
             return False
         if rule.UNTIL and rule.UNTIL.date() < timezone.localdate():
@@ -213,20 +228,21 @@ class EventService:
 
     def calculate_dates_for_regular_event(
         self,
+        event: ParsedEvent,
     ) -> RegularEventDates:
         today = timezone.localdate()
         return RegularEventDates(
             today=today,
             week_number=(today.day - 1) // 7 + 1,
-            new_date_from=self.calculate_new_date(self.event.date_from, today),
+            new_date_from=self.calculate_new_date(event.date_from, today),
             new_date_till=self.calculate_new_date(
-                self.event.date_till,
+                event.date_till,
                 today,
             )
-            if self.event.date_till
+            if event.date_till
             else None,
-            weeks_from_event_start=(today - self.event.date_from.date()).days // 7,
-            days_from_start_event=(today - self.event.date_from.date()).days,
+            weeks_from_event_start=(today - event.date_from.date()).days // 7,
+            days_from_start_event=(today - event.date_from.date()).days,
         )
 
     def calculate_new_date(

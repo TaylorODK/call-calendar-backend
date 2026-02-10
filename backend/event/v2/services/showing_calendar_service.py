@@ -1,4 +1,3 @@
-from dataclasses import dataclass
 from django.db.models import Q, QuerySet
 from django.utils import timezone
 from core.constants import CHAT_ID, CALENDAR_KEY
@@ -8,18 +7,17 @@ from event.serializers import EventShowSerializer
 from users.models import User
 
 
-@dataclass
 class ShowCalendarService:
     request: RequestForCalendar
 
-    def __call__(self, *args, **kwds) -> PreparedData:
-        if self.request.chat_id == CHAT_ID:
+    def __call__(self, request: RequestForCalendar) -> PreparedData:
+        if request.chat_id == CHAT_ID:
             return PreparedData(
                 data=self.hardcode_request(),
                 message=None,
-                telegram_id=self.request.telegram_id,
+                telegram_id=request.telegram_id,
             )
-        prepared_data = self.request_for_regular_calendar()
+        prepared_data = self.request_for_regular_calendar(request=request)
         if prepared_data.message:
             from event.tasks import send_telegram_message
 
@@ -78,22 +76,31 @@ class ShowCalendarService:
             ),
         }
 
-    def request_for_regular_calendar(self, message: str = "") -> PreparedData:
+    def request_for_regular_calendar(
+        self,
+        request: RequestForCalendar,
+        message: str = "",
+    ) -> PreparedData:
         data: list = []
-        prepared_data = PreparedData(
-            data=data,
-            message=message,
-            telegram_id=self.request.telegram_id,
-        )
-        user, prepared_data.message = self.try_find_user()
+        user, message = self.try_find_user(request=request)
         if not user:
-            return prepared_data
-        if not user.is_active:
-            prepared_data.message = self.prepare_message_to_user(not_active=True)
-            return prepared_data
-        calendar, prepared_data.message = self.check_user_has_calendar(user)
-        if prepared_data.message or not calendar:
-            return prepared_data
+            message = self.prepare_message_to_user(
+                not_registered=True,
+            )
+        elif not user.is_active:
+            message = self.prepare_message_to_user(
+                not_active=True,
+            )
+        else:
+            calendar, message = self.check_user_has_calendar(
+                user=user,
+            )
+        if message or not calendar:
+            return PreparedData(
+                data=data,
+                message=message,
+                telegram_id=request.telegram_id,
+            )
         queryset = (
             Event.objects.filter(
                 date_from__date=timezone.localdate(),
@@ -109,18 +116,23 @@ class ShowCalendarService:
                 "date_from",
             )
         )
-        prepared_data.data = EventShowSerializer(
+        data = EventShowSerializer(
             queryset,
             many=True,
         ).data
-        return prepared_data
+        return PreparedData(
+            data=data,
+            message=message,
+            telegram_id=request.telegram_id,
+        )
 
     def try_find_user(
         self,
+        request: RequestForCalendar,
         message: str = "",
-    ) -> tuple[User | None, str | None]:
+    ) -> tuple[User | None, str]:
         try:
-            user = User.objects.get(telegram_id=self.request.telegram_id)
+            user = User.objects.get(telegram_id=request.telegram_id)
         except User.DoesNotExist:
             return None, self.prepare_message_to_user(not_registered=True)
         return user, message
@@ -129,7 +141,7 @@ class ShowCalendarService:
         self,
         user: User,
         message: str = "",
-    ) -> tuple[Calendar | None, str | None]:
+    ) -> tuple[Calendar | None, str]:
         if not user.calendar:
             return None, self.prepare_message_to_user(no_calendar=True)
         try:

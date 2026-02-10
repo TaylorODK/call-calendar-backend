@@ -12,6 +12,18 @@ from event.v2.services import ShowCalendarService
 
 
 class EventShowView(GenericViewSet):
+    """
+    Вьюсет для отображения мероприятий в календарях.
+    Предусмотрены 2 варианта:
+    1) отображение личного календаря;
+    2) отображение группового календря (хардкод).
+    Допускается возможность сделать запрос любым пользователям,
+    в случае, если пользователь не прошел регистрацию или активацию,
+    либо пользователю не назначен календарь, в его адрес будет направлено
+    сообщение от бота с информацией о причинах
+    ошибки предоставления календаря.
+    """
+
     permission_classes = (AllowAny,)
 
     @action(
@@ -31,8 +43,9 @@ class EventShowView(GenericViewSet):
             telegram_id=request.headers.get("telegram-id"),
             chat_id=str(request.data.get("chat_id")),
         )
-        prepared_data = ShowCalendarService(data).__call__()
-        if prepared_data.data:
+        show_service = ShowCalendarService()
+        prepared_data = show_service(data)
+        if not prepared_data.message:
             return Response(
                 {
                     "meetings": prepared_data.data,

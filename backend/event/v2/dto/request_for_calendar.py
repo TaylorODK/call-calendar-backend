@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True)
+@dataclass(slots=True, frozen=True, kw_only=True)
 class RequestForCalendar:
     telegram_id: str
     chat_id: str

@@ -1,8 +1,7 @@
 from dataclasses import dataclass
+from users.v2.dto import BaseData
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
-class PreparedData:
-    data: list
-    message: str | None
-    telegram_id: str
+class ConfirmData(BaseData):
+    code: str

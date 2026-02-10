@@ -1,6 +1,5 @@
 import requests
 from requests import Response
-from dataclasses import dataclass
 from icalendar import Calendar as ICalendar
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -12,19 +11,16 @@ from event.v2.dto.event import ParsedEvent
 from event.v2.services.event_service import EventService
 
 
-@dataclass(frozen=True)
 class CalendarService:
     """
     Парсинг календаря.
     """
 
-    cal: Calendar
-
-    def __call__(self):
-        parsing_url = f"{PARSE_URL}{self.cal.key}"
+    def __call__(self, cal: Calendar):
+        parsing_url = f"{PARSE_URL}{cal.key}"
         events = self.send_request_to_url(parsing_url)
         calendar = self.get_icalendar_data(events.content)
-        current_events = self.get_current_events_for_calendar()
+        current_events = self.get_current_events_for_calendar(cal=cal)
         new_events = []
         for event in calendar.walk("VEVENT"):
             event_to_service = ParsedEvent(
@@ -33,13 +29,18 @@ class CalendarService:
                 description=str(event.get("description", "")),
                 url_calendar=str(event.get("url", "")),
                 date_from=event.get("dtstart").dt,
-                date_till=event.get("dtend").dt if event.get("dtend") else None,
+                date_till=event.get(
+                    "dtend",
+                ).dt
+                if event.get("dtend")
+                else None,
                 rrule=event.get("RRULE") if event.get("RRULE") else None,
             )
-            serviced_event = EventService(
-                event_to_service,
-                calendar=self.cal,
-            ).__call__()
+            event_service = EventService()
+            serviced_event = event_service(
+                event=event_to_service,
+                calendar=cal,
+            )
             if serviced_event:
                 new_events.append(serviced_event.event)
             else:
@@ -80,9 +81,10 @@ class CalendarService:
 
     def get_current_events_for_calendar(
         self,
+        cal: Calendar,
     ) -> QuerySet[Event]:
         return Event.objects.filter(
-            calendar=self.cal,
+            calendar=cal,
             date_from__gt=timezone.now(),
         )
 

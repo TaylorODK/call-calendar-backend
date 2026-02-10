@@ -45,5 +45,5 @@ class UserEventsSerializer(serializers.ModelSerializer):
 
 
 class TelegramDataSerializer(serializers.Serializer):
-    telegram_id = serializers.CharField()
-    chat_id = serializers.CharField()
+    telegram_id = serializers.IntegerField()
+    chat_id = serializers.IntegerField()
