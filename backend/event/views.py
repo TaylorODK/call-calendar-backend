@@ -1,43 +1,30 @@
-from django.db.models import Q
 from django.http import HttpResponse
-from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework.viewsets import GenericViewSet
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework import status
-from core.constants import CHAT_ID, CALENDAR_KEY
-from event.models import Event
-from event.serializers import EventShowSerializer, UserEventsSerializer
-from event.permissions import TelegramUserPermission
-from event.utils import events_for_group
-from users.models import User
+from event.serializers import (
+    TelegramDataSerializer,
+)
+from event.v2.dto import RequestForCalendar
+from event.v2.services import ShowCalendarService
 
 
 class EventShowView(GenericViewSet):
-    permission_classes = (TelegramUserPermission,)
+    """
+    Вьюсет для отображения мероприятий в календарях.
+    Предусмотрены 2 варианта:
+    1) отображение личного календаря;
+    2) отображение группового календря (хардкод).
+    Допускается возможность сделать запрос любым пользователям,
+    в случае, если пользователь не прошел регистрацию или активацию,
+    либо пользователю не назначен календарь, в его адрес будет направлено
+    сообщение от бота с информацией о причинах
+    ошибки предоставления календаря.
+    """
 
-    def get_queryset(self):
-        user = self.request.telegram_user
-        base_q = Q(
-            date_from__date=timezone.localdate(),
-            date_till__gt=timezone.now(),
-            calendar=user.calendar,
-            users=user,
-        )
-        return (
-            Event.objects.filter(
-                base_q,
-            )
-            .prefetch_related(
-                "users",
-            )
-            .select_related(
-                "calendar",
-            )
-            .order_by(
-                "date_from",
-            )
-        )
+    permission_classes = (AllowAny,)
 
     @action(
         methods=["GET"],
@@ -45,44 +32,32 @@ class EventShowView(GenericViewSet):
         detail=False,
     )
     def show_events(self, request):
-        user = User.objects.get(telegram_id=request.headers.get("telegram-id"))
-        if not user.is_active:
-            return Response(
-                {
-                    "error": "Пользователь не был активирован,"
-                    " повторите регистрацию.",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        serializer = UserEventsSerializer(data=request.data)
+        serializer = TelegramDataSerializer(
+            data={
+                "telegram_id": request.headers.get("telegram-id"),
+                "chat_id": request.data.get("chat_id"),
+            },
+        )
         serializer.is_valid(raise_exception=True)
-        if serializer.validated_data.get("chat_id") == CHAT_ID:
-            events_qs = Event.objects.filter(
-                Q(
-                    date_from__date=timezone.localdate(),
-                    date_till__gt=timezone.now(),
-                    calendar__key=CALENDAR_KEY,
-                ),
-            ).order_by(
-                "date_from",
-            )
-            serializer = events_for_group(events_qs)
+        data = RequestForCalendar(
+            telegram_id=request.headers.get("telegram-id"),
+            chat_id=str(request.data.get("chat_id")),
+        )
+        show_service = ShowCalendarService()
+        prepared_data = show_service(data)
+        if not prepared_data.message:
             return Response(
                 {
-                    "meetings": serializer,
+                    "meetings": prepared_data.data,
                 },
                 status=status.HTTP_200_OK,
             )
-        else:
-            return Response(
-                {
-                    "meetings": EventShowSerializer(
-                        self.get_queryset(),
-                        many=True,
-                    ).data,
-                },
-                status=status.HTTP_200_OK,
-            )
+        return Response(
+            {
+                "errors": prepared_data.message,
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
 
 def always_ok(request):

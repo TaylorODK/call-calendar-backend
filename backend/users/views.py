@@ -1,8 +1,7 @@
 import logging
 
-from typing import Type
 
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.decorators import action
 from rest_framework.permissions import AllowAny
 from rest_framework.request import Request
@@ -10,12 +9,14 @@ from rest_framework.response import Response
 from rest_framework.viewsets import GenericViewSet
 from event.permissions import TelegramUserPermission
 from users.models import User
-from users.serializers import (
+from users.v2.serializers import (
     LoginCodeCreateSerializer,
     CodeConfirmSerializer,
     SetShowTimeSerializer,
+    CheckRegistrationDataSerializer,
 )
-
+from users.v2.dto import RegistrationData
+from users.v2.services import RegistrationService
 
 logger = logging.getLogger("app")
 
@@ -23,26 +24,36 @@ logger = logging.getLogger("app")
 class EmailCheckViewSet(GenericViewSet):
     permission_classes = (AllowAny,)
 
-    def get_serializer_class(self) -> Type[serializers.Serializer]:
-        return {
-            "register": LoginCodeCreateSerializer,
-            "code": CodeConfirmSerializer,
-        }.get(self.action, LoginCodeCreateSerializer)
-
     @action(url_path="email", detail=False, methods=["POST"])
     def register(self, request: Request, *args, **kwargs) -> Response:
         if not request.headers.get("telegram-id"):
             return Response(
                 {
-                    "detaid": "Не был получен telegram-id",
+                    "detail": "Не был получен telegram-id",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        serializer = LoginCodeCreateSerializer(
-            data=request.data,
-            context={"telegram_id": request.headers.get("telegram-id")},
+        telegram_id = request.headers.get("telegram-id")
+        serializer = CheckRegistrationDataSerializer(
+            data={
+                "telegram_id": telegram_id,
+                "email": request.data.get("email"),
+            },
         )
-        if serializer.is_valid():
+        serializer.is_valid(raise_exception=True)
+        regictration_start = RegistrationService()
+        registration_check = regictration_start(
+            registration_data=RegistrationData(
+                telegram_id=telegram_id,
+                email=request.data.get("email"),
+            ),
+        )
+        if registration_check.can_send_code:
+            serializer = LoginCodeCreateSerializer(
+                data=request.data,
+                context={"telegram_id": telegram_id},
+            )
+            serializer.is_valid(raise_exception=True)
             instance = serializer.save()
             logger.info(
                 f"Регистрация пользователя {instance.email}",
@@ -57,8 +68,16 @@ class EmailCheckViewSet(GenericViewSet):
                 },
                 status=status.HTTP_201_CREATED,
             )
-        logger.info(
-            f"Ошибка регистрации пользователя {request.data["email"]}",
+        logger.error(
+            f"""Ошибка регистрации пользователя: \n
+            код - {registration_check.error.error_code}. \n
+            сообщение - {registration_check.error.error_message}
+            telegram_id - {
+                (
+                    telegram_id
+                ) if telegram_id else None
+            }.
+            """,
             extra={
                 "method": self.action,
                 "status": status.HTTP_400_BAD_REQUEST,
@@ -66,7 +85,7 @@ class EmailCheckViewSet(GenericViewSet):
         )
         return Response(
             {
-                "detail": list(serializer.errors.values())[0][0],
+                "detail": registration_check.error.error_message,
             },
             status=status.HTTP_400_BAD_REQUEST,
         )
@@ -76,7 +95,7 @@ class EmailCheckViewSet(GenericViewSet):
         if not request.headers.get("telegram-id"):
             return Response(
                 {
-                    "detaid": "Не был получен telegram-id",
+                    "detail": "Не был получен telegram-id",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -95,7 +114,9 @@ class EmailCheckViewSet(GenericViewSet):
             )
             return Response(
                 {
-                    "confirm": "Пользователь активирован",
+                    "confirm": "Пользователь активирован,"
+                    " для получения данных календаря вам надо нажать кнопку "
+                    "'Мои созвоны'",
                 },
                 status=status.HTTP_201_CREATED,
             )

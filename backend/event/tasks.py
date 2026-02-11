@@ -5,9 +5,11 @@ from celery import shared_task
 import requests
 from django_celery_beat.models import ClockedSchedule, PeriodicTask
 from django.utils import timezone
-from event.utils import parse_ics
 from event.models import Calendar, Event
+from event.v2.dto import ServicedEvent, PreparedData
+from event.v2.services.calendar_service import CalendarService
 from calendar_backend.settings import BOT_TOKEN
+from core.constants import ALERT_TIME_BEFORE_EVENT
 
 
 bot_logger = logging.getLogger("bot")
@@ -20,7 +22,8 @@ def run_base_update(calendar_id: int) -> None:
 
     cal = Calendar.objects.get(id=calendar_id)
     calendar_logger.info(f"Обновление календаря '{cal.title}'")
-    parse_ics(cal)
+    parsing = CalendarService()
+    parsing(cal=cal)
 
 
 @shared_task
@@ -33,27 +36,40 @@ def start_update_calendar() -> None:
 
 @shared_task
 def send_telegram_message(
-    message: str,
-    subject: str,
-    event: Event,
+    serviced_event: ServicedEvent | None = None,
+    prepared_data: PreparedData | None = None,
 ) -> list[dict] | None:
     """
-    Таска по отправке сообщения в телеграм пользователей,
-    связанных с мероприятием.
+    Таска по отправке сообщения в телеграм пользователей:
+    Возможны 2 сценария для отправки сообщений:
+    1) по результатам парсинга календаря serviced_event
+    (создание, изменеие, удаление мероприятия);
+    2) по результатам обработки запроса пользователя
+    на предоставление данных календаря prepared_data
     """
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     responses = []
-    for user in event.users.all():
+    if serviced_event:
+        for user in serviced_event.users.all():
+            data = {
+                "chat_id": user.telegram_id,
+                "text": serviced_event.message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            response = requests.post(url, json=data)
+            responses.append(response.json)
+            bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
+    elif prepared_data:
         data = {
-            "chat_id": user.telegram_id,
-            "text": message,
+            "chat_id": prepared_data.telegram_id,
+            "text": prepared_data.message,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }
         response = requests.post(url, json=data)
         responses.append(response.json)
-        bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
     return responses if responses else None
 
 
@@ -70,7 +86,9 @@ def clear_old_events() -> None:
 def create_task_for_alert(event_id: int) -> None:
     event = Event.objects.get(id=event_id)
     if event:
-        alert_time = event.date_from - timedelta(minutes=15)
+        alert_time = event.date_from - timedelta(
+            minutes=ALERT_TIME_BEFORE_EVENT,
+        )
         if alert_time <= timezone.now():
             send_alert(event_id)
             return
@@ -99,7 +117,8 @@ def send_alert(event_id: int) -> None:
     event = Event.objects.get(id=event_id)
     if event and event.date_from > timezone.now():
         users = event.users.all()
-        letter = f"<b>🕐 Скоро начнется созвон {event.title}</b>\n\n"
+        letter = f"<b>🕐 Через {ALERT_TIME_BEFORE_EVENT}"
+        letter += f" минут начнется созвон {event.title}</b>\n\n"
         event_url = event.url_for_event()
         if event_url:
             event_url = event_url.strip().rstrip('\\"')
@@ -114,3 +133,12 @@ def send_alert(event_id: int) -> None:
                 "disable_web_page_preview": True,
             }
             requests.post(url, json=data)
+
+
+@shared_task
+def delete_task_for_alert(event_id):
+    task = PeriodicTask.objects.filter(
+        name=f"alert_for_event_{event_id}",
+    ).first()
+    if task:
+        task.delete()
