@@ -21,16 +21,16 @@ class EventService:
         calendar: Calendar,
     ) -> ServicedEvent | None:
         dates = None
-        parsed_rules = self.calculate_parsed_rule(event=event)
+        parsed_rules = self._calculate_parsed_rule(event=event)
         if parsed_rules:
-            dates = self.calculate_dates_for_regular_event(event=event)
-        if not self.check_if_event_today(
+            dates = self._calculate_dates_for_regular_event(event=event)
+        if not self._check_if_event_today(
             event=event,
             rule=parsed_rules if parsed_rules else None,
             dates=dates if dates else None,
         ):
             return None
-        serviced_event = self.create_event(
+        serviced_event = self._create_event(
             event=event,
             calendar=calendar,
             dates=dates if dates else None,
@@ -40,20 +40,20 @@ class EventService:
                 from event.tasks import send_telegram_message
 
                 send_telegram_message(serviced_event=serviced_event)
-            self.add_calendar_to_event(
+            self._add_calendar_to_event(
                 serviced_event=serviced_event,
                 calendar=calendar,
             )
-            self.add_users_to_event(serviced_event=serviced_event)
-            self.remove_users_if_not_in_calendar(
+            self._add_users_to_event(serviced_event=serviced_event)
+            self._remove_users_if_not_in_calendar(
                 serviced_event=serviced_event,
             )
             if calendar.key == CALENDAR_KEY:
-                self.hardcode_calendar(serviced_event=serviced_event)
+                self._hardcode_calendar(serviced_event=serviced_event)
             return serviced_event
         return None
 
-    def create_event(
+    def _create_event(
         self,
         event: ParsedEvent,
         calendar: Calendar,
@@ -70,13 +70,14 @@ class EventService:
                 "date_till": (dates.new_date_till) if dates else event.date_till,
             },
         )
-        message = self.generate_message(
+        message = self._generate_message(
             event=new_event,
             created=created,
+            dates=dates,
             changed_fields=None,
         )
         if not created and not dates:
-            serviced_event = self.update_event(
+            serviced_event = self._update_event(
                 event_to_update=new_event,
                 event=event,
                 users=users,
@@ -88,7 +89,7 @@ class EventService:
             users=users,
         )
 
-    def update_event(
+    def _update_event(
         self,
         event_to_update: Event,
         event: ParsedEvent,
@@ -110,7 +111,7 @@ class EventService:
         if changed_fields:
             fields_list = [field for field in changed_fields.keys()]
             event_to_update.save(update_fields=fields_list)
-        message = self.generate_message(
+        message = self._generate_message(
             event=event_to_update,
             created=False,
             changed_fields=changed_fields,
@@ -121,14 +122,17 @@ class EventService:
             users=users,
         )
 
-    def generate_message(
+    def _generate_message(
         self,
         event: Event,
         created: bool,
         changed_fields: dict | None,
+        dates: RegularEventDates | None = None,
     ) -> str:
         message = ""
-        if created and event.date_from.date() == timezone.localdate():
+        if dates:
+            return message
+        elif created and event.date_from.date() == timezone.localdate():
             message = "📅 Новое мероприятие в календаре:"
             message += f"<b>{event.title.strip()}</b>\n"
             message += f"   🕐 {event.time_for_event()}\n"
@@ -142,7 +146,7 @@ class EventService:
             message += "".join(changed_fields.values())
         return message
 
-    def hardcode_calendar(self, serviced_event: ServicedEvent) -> None:
+    def _hardcode_calendar(self, serviced_event: ServicedEvent) -> None:
         """
         ХАРДКОД для группового календаря.
         """
@@ -151,7 +155,7 @@ class EventService:
             update_fields=["star", "slash", "aiterus", "all_event"],
         )
 
-    def add_calendar_to_event(
+    def _add_calendar_to_event(
         self,
         calendar: Calendar,
         serviced_event: ServicedEvent,
@@ -159,7 +163,7 @@ class EventService:
         if calendar not in serviced_event.event.calendar.all():
             serviced_event.event.calendar.add(calendar)
 
-    def add_users_to_event(
+    def _add_users_to_event(
         self,
         serviced_event: ServicedEvent,
     ) -> None:
@@ -167,7 +171,7 @@ class EventService:
             if user not in serviced_event.event.users.all():
                 serviced_event.event.users.add(*serviced_event.users)
 
-    def remove_users_if_not_in_calendar(
+    def _remove_users_if_not_in_calendar(
         self,
         serviced_event: ServicedEvent,
     ) -> None:
@@ -175,7 +179,7 @@ class EventService:
             if user.calendar not in serviced_event.event.calendar.all():
                 serviced_event.event.users.remove(user)
 
-    def calculate_parsed_rule(
+    def _calculate_parsed_rule(
         self,
         event: ParsedEvent,
     ) -> ParsedRule | None:
@@ -188,7 +192,7 @@ class EventService:
             UNTIL=event.rrule.get("UNTIL", [None])[0],
         )
 
-    def check_if_event_today(
+    def _check_if_event_today(
         self,
         event: ParsedEvent,
         rule: ParsedRule | None,
@@ -227,7 +231,7 @@ class EventService:
             return False
         return False
 
-    def calculate_dates_for_regular_event(
+    def _calculate_dates_for_regular_event(
         self,
         event: ParsedEvent,
     ) -> RegularEventDates:
@@ -235,8 +239,8 @@ class EventService:
         return RegularEventDates(
             today=today,
             week_number=(today.day - 1) // 7 + 1,
-            new_date_from=self.calculate_new_date(event.date_from, today),
-            new_date_till=self.calculate_new_date(
+            new_date_from=self._calculate_new_date(event.date_from, today),
+            new_date_till=self._calculate_new_date(
                 event.date_till,
                 today,
             )
@@ -246,7 +250,7 @@ class EventService:
             days_from_start_event=(today - event.date_from.date()).days,
         )
 
-    def calculate_new_date(
+    def _calculate_new_date(
         self,
         date: datetime,
         today: date,

@@ -1,6 +1,10 @@
 from datetime import timedelta
 from django.utils import timezone
-from users.v2.dto import RegistrationData, RegistrationAnswer, RegistrationError
+from users.v2.dto import (
+    RegistrationData,
+    RegistrationAnswer,
+    RegistrationError,
+)
 from users.models import User, LoginCode
 from core.constants import ALLOWED_EMAIL, CODE_EXPIRATION_TIME
 from core.enums import ErrorCodes
@@ -12,10 +16,10 @@ class RegistrationService:
         registration_data: RegistrationData,
     ) -> RegistrationAnswer:
         checks = (
-            self.check_telegram_id,
-            self.check_email_user,
-            self.check_email_domain,
-            self.check_last_code,
+            self._check_telegram_id,
+            self._check_email_user,
+            self._check_email_domain,
+            self._check_last_code,
         )
         for check in checks:
             error = check(registration_data=registration_data)
@@ -29,7 +33,7 @@ class RegistrationService:
             can_send_code=True,
         )
 
-    def check_telegram_id(
+    def _check_telegram_id(
         self,
         registration_data: RegistrationData,
     ) -> RegistrationError | None:
@@ -44,7 +48,7 @@ class RegistrationService:
             )
         return None
 
-    def check_email_user(
+    def _check_email_user(
         self,
         registration_data: RegistrationData,
     ) -> RegistrationError | None:
@@ -58,7 +62,7 @@ class RegistrationService:
             )
         return None
 
-    def check_email_domain(
+    def _check_email_domain(
         self,
         registration_data: RegistrationData,
     ) -> RegistrationError | None:
@@ -69,7 +73,7 @@ class RegistrationService:
             )
         return None
 
-    def check_last_code(
+    def _check_last_code(
         self,
         registration_data: RegistrationData,
     ) -> RegistrationError | None:

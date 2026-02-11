@@ -13,11 +13,11 @@ class ShowCalendarService:
     def __call__(self, request: RequestForCalendar) -> PreparedData:
         if request.chat_id == CHAT_ID:
             return PreparedData(
-                data=self.hardcode_request(),
+                data=self._hardcode_request(),
                 message=None,
                 telegram_id=request.telegram_id,
             )
-        prepared_data = self.request_for_regular_calendar(request=request)
+        prepared_data = self._request_for_regular_calendar(request=request)
         if prepared_data.message:
             from event.tasks import send_telegram_message
 
@@ -26,7 +26,7 @@ class ShowCalendarService:
             )
         return prepared_data
 
-    def hardcode_request(self) -> list:
+    def _hardcode_request(self) -> list:
         events_qs = Event.objects.filter(
             Q(
                 date_from__date=timezone.localdate(),
@@ -36,10 +36,10 @@ class ShowCalendarService:
         ).order_by(
             "date_from",
         )
-        data = self.hardcode_events_for_group(events_qs)
+        data = self._hardcode_events_for_group(events_qs)
         return data
 
-    def hardcode_events_for_group(
+    def _hardcode_events_for_group(
         self,
         events_qs: QuerySet[Event],
         no_events: bool = True,
@@ -49,20 +49,20 @@ class ShowCalendarService:
         slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
         aiterus_events = events_qs.filter(aiterus=True)
         results.append(
-            self.hardcode_get_result_for_user("Павел", slash_events),
+            self._hardcode_get_result_for_user("Павел", slash_events),
         )
         results.append(
-            self.hardcode_get_result_for_user("Анна/Олеся", star_events),
+            self._hardcode_get_result_for_user("Анна/Олеся", star_events),
         )
         results.append(
-            self.hardcode_get_result_for_user("Аитерус", aiterus_events),
+            self._hardcode_get_result_for_user("Аитерус", aiterus_events),
         )
         for result in results:
             if result["events"] is not None:
                 no_events = False
         return results if not no_events else []
 
-    def hardcode_get_result_for_user(
+    def _hardcode_get_result_for_user(
         self,
         username: str,
         type_events: QuerySet[Event],
@@ -79,23 +79,23 @@ class ShowCalendarService:
             ),
         }
 
-    def request_for_regular_calendar(
+    def _request_for_regular_calendar(
         self,
         request: RequestForCalendar,
         message: str = "",
     ) -> PreparedData:
         data: list = []
-        user, message = self.try_find_user(request=request)
+        user, message = self._try_find_user(request=request)
         if not user:
-            message = self.prepare_message_to_user(
+            message = self._prepare_message_to_user(
                 not_registered=True,
             )
         elif not user.is_active:
-            message = self.prepare_message_to_user(
+            message = self._prepare_message_to_user(
                 not_active=True,
             )
         else:
-            calendar, message = self.check_user_has_calendar(
+            calendar, message = self._check_user_has_calendar(
                 user=user,
             )
         if message or not calendar:
@@ -129,7 +129,7 @@ class ShowCalendarService:
             telegram_id=request.telegram_id,
         )
 
-    def try_find_user(
+    def _try_find_user(
         self,
         request: RequestForCalendar,
         message: str = "",
@@ -137,23 +137,23 @@ class ShowCalendarService:
         try:
             user = User.objects.get(telegram_id=request.telegram_id)
         except User.DoesNotExist:
-            return None, self.prepare_message_to_user(not_registered=True)
+            return None, self._prepare_message_to_user(not_registered=True)
         return user, message
 
-    def check_user_has_calendar(
+    def _check_user_has_calendar(
         self,
         user: User,
         message: str = "",
     ) -> tuple[Calendar | None, str]:
         if not user.calendar:
-            return None, self.prepare_message_to_user(no_calendar=True)
+            return None, self._prepare_message_to_user(no_calendar=True)
         try:
             calendar = Calendar.objects.get(id=user.calendar.id)
         except Calendar.DoesNotExist:
-            return None, self.prepare_message_to_user(no_calendar=True)
+            return None, self._prepare_message_to_user(no_calendar=True)
         return calendar, message
 
-    def prepare_message_to_user(
+    def _prepare_message_to_user(
         self,
         not_registered: bool = False,
         not_active: bool = False,

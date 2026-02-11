@@ -137,8 +137,8 @@ def send_alert(event_id: int) -> None:
 
 @shared_task
 def delete_task_for_alert(event_id):
-    task = PeriodicTask.objects.get(
+    task = PeriodicTask.objects.filter(
         name=f"alert_for_event_{event_id}",
-    )
+    ).first()
     if task:
         task.delete()
