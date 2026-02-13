@@ -58,12 +58,10 @@ def send_telegram_message(
     responses = []
     if prepared_message:
         try:
-            event = Event.objects.filter(id=prepared_message.event_id).first()
+            Event.objects.filter(id=prepared_message.event_id).first()
         except Event.DoesNotExist:
             raise NotFoundEvent
-        print(f"отправка сообщения {event.title}")
         for group_tg in prepared_message.groups_tg_ids:
-            print(group_tg)
             data = {
                 "chat_id": group_tg,
                 "text": prepared_message.message,
@@ -73,7 +71,6 @@ def send_telegram_message(
             response = requests.post(url, json=data)
             responses.append(response.json)
         for user_tg in prepared_message.users_tg_ids:
-            print(user_tg)
             data = {
                 "chat_id": user_tg,
                 "text": prepared_message.message,

@@ -93,7 +93,7 @@ class CreateMessageService:
             result = "📅 Новое мероприятие в календаре"
         else:
             result = "📅 Изменения в мероприятии"
-        result += f" '{event.title}':\n"
+        result += f" '{event.title}':\n\n"
         return result
 
     def _message_for_created_event(
@@ -134,7 +134,7 @@ class CreateMessageService:
         удаленного мероприятия.
         """
 
-        return "Созвон отменен"
+        return MessageEnums.deleted.value
 
     def _add_shortcut(self, event: Event) -> str:
         """
