@@ -80,8 +80,6 @@ def send_events_for_active_users(user_id: int) -> None:
         )
         .prefetch_related(
             "users",
-        )
-        .select_related(
             "calendar",
         )
         .order_by(

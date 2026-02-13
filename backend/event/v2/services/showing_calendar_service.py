@@ -10,6 +10,12 @@ from users.models import User
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class ShowCalendarService:
+    """
+    Сервис по отображению календаря
+    по запросу пользователя.
+    # TODO: добавить обработку запроса для обычных групп
+    """
+
     def __call__(self, request: RequestForCalendar) -> PreparedData:
         if request.chat_id == CHAT_ID:
             return PreparedData(
@@ -27,6 +33,11 @@ class ShowCalendarService:
         return prepared_data
 
     def _hardcode_request(self) -> list:
+        """
+        ХАРДКОД.
+        Обработка запроса в группе техчасти.
+        """
+
         events_qs = Event.objects.filter(
             Q(
                 date_from__date=timezone.localdate(),
@@ -44,6 +55,11 @@ class ShowCalendarService:
         events_qs: QuerySet[Event],
         no_events: bool = True,
     ) -> list:
+        """
+        ХАРДКОД.
+        Подготовка данных для запроса в группе техчасти.
+        """
+
         results = []
         star_events = events_qs.filter(star=True)
         slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
@@ -67,6 +83,12 @@ class ShowCalendarService:
         username: str,
         type_events: QuerySet[Event],
     ) -> dict:
+        """
+        ХАРДКОД.
+        Подготовка данных по пользователям
+        для оторажения в группе техчасти.
+        """
+
         return {
             "username": username,
             "events": (
@@ -84,6 +106,19 @@ class ShowCalendarService:
         request: RequestForCalendar,
         message: str = "",
     ) -> PreparedData:
+        """
+        Обработка запроса от пользователей.
+        Проводятся следующие проверки:
+        - существование пользователя;
+        - пользователь активен;
+        - есть ли у пользователя календарь.
+        В случае если пользователь не прошел какую-нибудь
+        проверку, ему будет отправлено сообщение с пояснениями
+        по ошибке запроса.
+        Если все проверки пройдены, пользователю отправляются
+        актуальные события на текущий день.
+        """
+
         data: list = []
         user, message = self._try_find_user(request=request)
         if not user:
@@ -134,6 +169,10 @@ class ShowCalendarService:
         request: RequestForCalendar,
         message: str = "",
     ) -> tuple[User | None, str]:
+        """
+        Проверка регистрации прользователя.
+        """
+
         try:
             user = User.objects.get(telegram_id=request.telegram_id)
         except User.DoesNotExist:
@@ -145,6 +184,10 @@ class ShowCalendarService:
         user: User,
         message: str = "",
     ) -> tuple[Calendar | None, str]:
+        """
+        Проверка наличия календаря у пользователя.
+        """
+
         if not user.calendar:
             return None, self._prepare_message_to_user(no_calendar=True)
         try:
@@ -161,6 +204,11 @@ class ShowCalendarService:
         message: str = "Уважаемый пользователь, для получения "
         "данных календаря, вам необходимо ",
     ) -> str:
+        """
+        Подготовка сообщения в адрес пользователя в случае, если он
+        не прошел проверку.
+        """
+
         if not_registered:
             message += "зарегистрироваться."
             return message

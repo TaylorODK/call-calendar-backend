@@ -8,3 +8,7 @@ class BaseServiceError(Exception):
 
 class NotWorkingParseEvent(BaseServiceError):
     """Не удалось начать парсинг календаря."""
+
+
+class NotFoundEvent(BaseServiceError):
+    """Не удалось найти событие для отправки сообщения."""

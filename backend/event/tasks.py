@@ -6,10 +6,11 @@ import requests
 from django_celery_beat.models import ClockedSchedule, PeriodicTask
 from django.utils import timezone
 from event.models import Calendar, Event
-from event.v2.dto import ServicedEvent, PreparedData
+from event.v2.dto import PreparedData, MessageForSending
 from event.v2.services.calendar_service import CalendarService
 from calendar_backend.settings import BOT_TOKEN
 from core.constants import ALERT_TIME_BEFORE_EVENT
+from core.exceptions import NotFoundEvent
 
 
 bot_logger = logging.getLogger("bot")
@@ -18,7 +19,9 @@ calendar_logger = logging.getLogger("calendar")
 
 @shared_task
 def run_base_update(calendar_id: int) -> None:
-    """Таска по обновлению календаря."""
+    """
+    Таска по обновлению календаря.
+    """
 
     cal = Calendar.objects.get(id=calendar_id)
     calendar_logger.info(f"Обновление календаря '{cal.title}'")
@@ -28,7 +31,10 @@ def run_base_update(calendar_id: int) -> None:
 
 @shared_task
 def start_update_calendar() -> None:
-    """Таска по обновлению всех календарей."""
+    """
+    Таска по обновлению всех календарей.
+    """
+
     calendar_logger.info("Начало задачи по обновлению календарей")
     for calendar_id in Calendar.objects.values_list("id", flat=True):
         run_base_update.delay(calendar_id)
@@ -36,13 +42,13 @@ def start_update_calendar() -> None:
 
 @shared_task
 def send_telegram_message(
-    serviced_event: ServicedEvent | None = None,
+    prepared_message: MessageForSending | None = None,
     prepared_data: PreparedData | None = None,
 ) -> list[dict] | None:
     """
     Таска по отправке сообщения в телеграм пользователей:
     Возможны 2 сценария для отправки сообщений:
-    1) по результатам парсинга календаря serviced_event
+    1) по результатам парсинга календаря и sending_message_service
     (создание, изменеие, удаление мероприятия);
     2) по результатам обработки запроса пользователя
     на предоставление данных календаря prepared_data
@@ -50,17 +56,32 @@ def send_telegram_message(
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     responses = []
-    if serviced_event:
-        for user in serviced_event.users.all():
+    if prepared_message:
+        try:
+            event = Event.objects.filter(id=prepared_message.event_id).first()
+        except Event.DoesNotExist:
+            raise NotFoundEvent
+        print(f"отправка сообщения {event.title}")
+        for group_tg in prepared_message.groups_tg_ids:
+            print(group_tg)
             data = {
-                "chat_id": user.telegram_id,
-                "text": serviced_event.message,
+                "chat_id": group_tg,
+                "text": prepared_message.message,
                 "parse_mode": "HTML",
                 "disable_web_page_preview": True,
             }
             response = requests.post(url, json=data)
             responses.append(response.json)
-            bot_logger.info(f"Сообщение в адрес пользователя {user.email}")
+        for user_tg in prepared_message.users_tg_ids:
+            print(user_tg)
+            data = {
+                "chat_id": user_tg,
+                "text": prepared_message.message,
+                "parse_mode": "HTML",
+                "disable_web_page_preview": True,
+            }
+            response = requests.post(url, json=data)
+            responses.append(response.json)
     elif prepared_data:
         data = {
             "chat_id": prepared_data.telegram_id,
@@ -75,7 +96,12 @@ def send_telegram_message(
 
 @shared_task
 def clear_old_events() -> None:
-    """Удаление старых мероприятий (вчерашних)."""
+    """
+    Задача по удалению старых мероприятий.
+    Запускается в 00:00.
+    Удаляются мероприятия прошедшего дня.
+    """
+
     calendar_logger.info("Начало задачи по удалению старых мероприятий")
     for event in Event.objects.all():
         if event.date_from.date() < timezone.localdate():
@@ -84,6 +110,18 @@ def clear_old_events() -> None:
 
 @shared_task
 def create_task_for_alert(event_id: int) -> None:
+    """
+    Создание задачи по отравке уведомлений в адрес
+    пользователя. Запускается по post_save сигналу из
+    signals.create_event_alert.
+    По итогам создается объекты 2 моделей:
+    - ClockedSchedule для времени уведомления;
+    - PeriodicTask для задачи по отправки уведомления.
+    Если мероприятие было создано менее чем за 10 минут до
+    его начала, то ведомление будет отпавлено немедленно и
+    объеты моделей создаваться не будут.
+    """
+
     event = Event.objects.get(id=event_id)
     if event:
         alert_time = event.date_from - timedelta(
@@ -113,6 +151,14 @@ def create_task_for_alert(event_id: int) -> None:
     retry_jitter=True,
 )
 def send_alert(event_id: int) -> None:
+    """
+    Отправка уведомлений в адрес пользователей
+    о приближающемся мероприятии.
+    Отправляется за 10 минут до созвона.
+    ВНИМАНИЕ!
+    Отпавка предусмотрена только в адрес пользователей.
+    """
+
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     event = Event.objects.get(id=event_id)
     if event and event.date_from > timezone.now():
@@ -137,6 +183,14 @@ def send_alert(event_id: int) -> None:
 
 @shared_task
 def delete_task_for_alert(event_id):
+    """
+    Удаление задачи по отправке уведомления.
+    Срабатывается по сигналу post_delete модели
+    Event из signals.delete_event_alert.
+    Необходима для незасорения админки периодическими
+    мероприятиями после удаления мероприятий.
+    """
+
     task = PeriodicTask.objects.filter(
         name=f"alert_for_event_{event_id}",
     ).first()
