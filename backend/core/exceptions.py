@@ -12,3 +12,7 @@ class NotWorkingParseEvent(BaseServiceError):
 
 class NotFoundEvent(BaseServiceError):
     """Не удалось найти событие для отправки сообщения."""
+
+
+class NoReceiver(BaseServiceError):
+    """Не удалось найти получателя сообщения в БД"""

@@ -25,3 +25,8 @@ class StatusEnums(StrEnum):
     UPDATED = "updated"
     DELETED = "deleted"
     NO_STATUS = ""
+
+
+class TypeReceiverEnums(StrEnum):
+    USER = "user"
+    GROUP_CHAT = "group_chat"

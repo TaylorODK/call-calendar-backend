@@ -137,6 +137,12 @@ class GroupChat(models.Model):
         null=True,
         related_name="groups",
     )
+    calendar_show_time = models.TimeField(
+        verbose_name="Время отображения календаря",
+        blank=True,
+        null=True,
+        default=None,
+    )
 
     class Meta:
         verbose_name = "Групповой чат"

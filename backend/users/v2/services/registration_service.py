@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 from datetime import timedelta
 from django.utils import timezone
 from users.v2.dto import (
@@ -10,6 +11,7 @@ from core.constants import ALLOWED_EMAIL, CODE_EXPIRATION_TIME
 from core.enums import ErrorCodes
 
 
+@dataclass(slots=True, frozen=True, kw_only=True)
 class RegistrationService:
     def __call__(
         self,

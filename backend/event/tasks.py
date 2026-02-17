@@ -11,6 +11,7 @@ from event.v2.services.calendar_service import CalendarService
 from calendar_backend.settings import BOT_TOKEN
 from core.constants import ALERT_TIME_BEFORE_EVENT
 from core.exceptions import NotFoundEvent
+from users.v2.dto import CalendarAlert
 
 
 bot_logger = logging.getLogger("bot")
@@ -44,14 +45,17 @@ def start_update_calendar() -> None:
 def send_telegram_message(
     prepared_message: MessageForSending | None = None,
     prepared_data: PreparedData | None = None,
+    calendar_alert: CalendarAlert | None = None,
 ) -> list[dict] | None:
     """
     Таска по отправке сообщения в телеграм пользователей:
-    Возможны 2 сценария для отправки сообщений:
+    Возможны 3 сценария для отправки сообщений:
     1) по результатам парсинга календаря и sending_message_service
     (создание, изменеие, удаление мероприятия);
     2) по результатам обработки запроса пользователя
     на предоставление данных календаря prepared_data
+    3) по результатам обработки таски на отправку пользователю
+    календаря CalendarAlert
     """
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
@@ -83,6 +87,15 @@ def send_telegram_message(
         data = {
             "chat_id": prepared_data.telegram_id,
             "text": prepared_data.message,
+            "parse_mode": "HTML",
+            "disable_web_page_preview": True,
+        }
+        response = requests.post(url, json=data)
+        responses.append(response.json)
+    elif calendar_alert:
+        data = {
+            "chat_id": calendar_alert.telegram_id,
+            "text": calendar_alert.message,
             "parse_mode": "HTML",
             "disable_web_page_preview": True,
         }

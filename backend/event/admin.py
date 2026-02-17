@@ -1,6 +1,8 @@
 from django.contrib import admin
 
 from event.models import Calendar, Event, GroupChat
+from users.tasks import create_event_schedule
+from typing import Any
 
 
 @admin.register(Calendar)
@@ -48,3 +50,16 @@ class GroupAdmin(admin.ModelAdmin):
     )
     list_display_links = ("title",)
     search_fields = ("title",)
+
+    def save_model(
+        self,
+        request: Any,
+        obj: Any,
+        form: Any,
+        change: bool,
+    ) -> None:
+        if change and "calendar_show_time" in form.changed_data:
+            super().save_model(request, obj, form, change)
+            create_event_schedule(group_id=obj.id)
+            return
+        super().save_model(request, obj, form, change)
