@@ -85,14 +85,10 @@ build_base_python_image:
       EOL
     - export KUBE_NAMESPACE="${CI_PROJECT_NAMESPACE##*/}-${ENVIRONMENT}"
     - echo $KUBE_NAMESPACE
-    - kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'; echo
-    - kubectl get --raw=/version
-    - kubectl get ns
-    - kubectl version --client --output=yaml
     - echo "CI_PROJECT_PATH=$CI_PROJECT_PATH"
-    - echo "CI_PROJECT_NAMESPACE=$CI_PROJECT_NAMESPACE"
-    - echo "KUBE_CONTEXT=$KUBE_CONTEXT"
-    - kubectl config current-context || true
+    - echo "CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME"
+    - echo "CI_COMMIT_REF_PROTECTED=$CI_COMMIT_REF_PROTECTED"
+    - echo "CI_ENVIRONMENT_NAME=$CI_ENVIRONMENT_NAME"
     - "kubectl config view --minify --raw | sed -E 's/(token: ).+/\\1***REDACTED***/'"
     - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply --validate=false -f -
     - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
