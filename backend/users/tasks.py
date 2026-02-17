@@ -56,7 +56,6 @@ def create_event_schedule(
         day_of_month="*",
         month_of_year="*",
     )
-    print(f"receiver {receiver}")
     PeriodicTask.objects.update_or_create(
         name=f"send_events_schedule_for_{receiver_name}_{receiver.id}",
         defaults={

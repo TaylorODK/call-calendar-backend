@@ -37,10 +37,8 @@ def update_shchedule_for_group_chat(sender, instance, update_fields, **kwargs) -
     """
     Обновление графика про сохранении модели группового чата.
     """
-    print("signal GROUP")
+
     if not update_fields:
-        print("FASLE")
         return
     if "calendar_show_time" in update_fields:
-        print("TRUE")
         create_event_schedule.delay(groud_id=instance.id)
