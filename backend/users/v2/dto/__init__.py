@@ -12,3 +12,9 @@ from users.v2.dto.registration_answer import RegistrationAnswer  # noqa
 
 # RegistrationError
 from users.v2.dto.registration_error import RegistrationError  # noqa
+
+# CalendarAlert
+from users.v2.dto.calendar_alert import CalendarAlert  # noqa
+
+# AlertReceiver
+from users.v2.dto.alert_reciever import AlerReceiver, PreparedAlertData  # noqa

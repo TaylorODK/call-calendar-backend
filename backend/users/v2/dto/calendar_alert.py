@@ -1,7 +1,7 @@
 from dataclasses import dataclass
+from users.v2.dto import BaseData
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
-class RequestForCalendar:
-    telegram_id: str | None
-    chat_id: str | None
+class CalendarAlert(BaseData):
+    message: str

@@ -74,6 +74,11 @@ class Event(BaseModel):
         related_name="events",
         blank=True,
     )
+    groups = models.ManyToManyField(
+        "event.GroupChat",
+        related_name="events",
+        blank=True,
+    )
 
     class Meta:
         verbose_name = "Мероприятие"
@@ -101,3 +106,47 @@ class Event(BaseModel):
             date_till = timezone.localtime(self.date_till)
             return f"{date_from:%H:%M} - {date_till:%H:%M}"
         return f"{date_from:%H:%M}"
+
+
+class GroupChat(models.Model):
+    """
+    Модель группового чата.
+    Объекты модели будут добавляться вручную в админке.
+    Модель сделана для отправки в групповые чаты уведомлений
+    о создании/изменении/удалении мероприятий.
+    Поля:
+    - title: str
+    - chat_id: str
+    - calendar: FK Calendar
+    """
+
+    title = models.CharField(
+        verbose_name="Наименование чата",
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+    )
+    chat_id = models.CharField(
+        verbose_name="Id группового чата",
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+    )
+    calendar = models.ForeignKey(
+        Calendar,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="groups",
+    )
+    calendar_show_time = models.TimeField(
+        verbose_name="Время отображения календаря",
+        blank=True,
+        null=True,
+        default=None,
+    )
+
+    class Meta:
+        verbose_name = "Групповой чат"
+        verbose_name_plural = "Групповые чаты"
+
+    def __str__(self) -> str:
+        return f"{self.title}"

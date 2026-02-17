@@ -2,24 +2,53 @@ from dataclasses import dataclass, fields
 from datetime import date, datetime
 from django.db.models import QuerySet
 from django.utils import timezone
-from event.models import Calendar, Event
+from event.models import Calendar, Event, GroupChat
 from event.v2.dto import (
+    MessageToPrepare,
     ParsedEvent,
     ParsedRule,
     ServicedEvent,
     RegularEventDates,
 )
-from core.constants import BYDAY_MAP, CALENDAR_KEY
+from event.v2.services.create_message_service import CreateMessageService
+from event.v2.services.sending_message_service import SendingMessageService
+from core.constants import (
+    BYDAY_MAP,
+    CALENDAR_KEY,
+)
 from users.models import User
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
 class EventService:
+    """
+    Сервис по созданию/изменению мероприятия
+    по итогам парсинга календаря.
+    Входные данные:
+    1) Событие - event: ParsedEvent;
+    2) Календарь calendar: Calendar.
+    События делятся на 2 типа:
+    - разовые события;
+    - регулярные события.
+    Регулярные делятся на 4 типа:
+    - ежедневные;
+    - еженедельные;
+    - ежемесячные;
+    - ежегодные; (TODO: предусмотреть парсинг ежегодных событий)
+    Регулярные события отличаются наличие полей:
+    - rrule;
+    - exdate.
+    Если в exdate есть текущая дата, то событие добавляться в БД
+    не будет.
+    """
+
     def __call__(
         self,
         event: ParsedEvent,
         calendar: Calendar,
     ) -> ServicedEvent | None:
+        if event.exdate and timezone.localdate() in event.exdate:
+            return None
         dates = None
         parsed_rules = self._calculate_parsed_rule(event=event)
         if parsed_rules:
@@ -30,24 +59,36 @@ class EventService:
             dates=dates if dates else None,
         ):
             return None
+        create_message = CreateMessageService()
         serviced_event = self._create_event(
             event=event,
             calendar=calendar,
             dates=dates if dates else None,
+            create_message=create_message,
         )
         if serviced_event:
-            if serviced_event.message:
-                from event.tasks import send_telegram_message
-
-                send_telegram_message(serviced_event=serviced_event)
             self._add_calendar_to_event(
                 serviced_event=serviced_event,
                 calendar=calendar,
             )
             self._add_users_to_event(serviced_event=serviced_event)
+            self._add_groups_to_event(serviced_event=serviced_event)
             self._remove_users_if_not_in_calendar(
                 serviced_event=serviced_event,
             )
+            self._remove_groups_if_not_in_calendar(
+                serviced_event=serviced_event,
+            )
+            if serviced_event.message:
+                message_service = SendingMessageService()
+                message_to_prepare = MessageToPrepare(
+                    message=serviced_event.message,
+                    event_id=serviced_event.event.id,
+                    status=serviced_event.status,
+                    users=serviced_event.users,
+                    groups=serviced_event.groups,
+                )
+                message_service(message_to_prepare=message_to_prepare)
             if calendar.key == CALENDAR_KEY:
                 self._hardcode_calendar(serviced_event=serviced_event)
             return serviced_event
@@ -58,8 +99,22 @@ class EventService:
         event: ParsedEvent,
         calendar: Calendar,
         dates: RegularEventDates | None,
+        create_message: CreateMessageService,
     ) -> ServicedEvent | None:
+        """
+        Создание события.
+        Если событие не создается, то оно
+        проверяется на наличие измененных полей.
+        К созданному разовому событию создается текст
+        сообщения.
+        ВНИМАНИЕ!
+        if not created and not dates - очень важные условия
+        для обновления мероприятий, иначе регулярное событие будет
+        обновлять себя в каждый парсинг по кругу.
+        """
+
         users = User.objects.filter(calendar=calendar)
+        groups = GroupChat.objects.filter(calendar=calendar)
         new_event, created = Event.objects.get_or_create(
             uid=event.uid,
             defaults={
@@ -70,7 +125,7 @@ class EventService:
                 "date_till": (dates.new_date_till) if dates else event.date_till,
             },
         )
-        message = self._generate_message(
+        message, status = create_message(
             event=new_event,
             created=created,
             dates=dates,
@@ -81,12 +136,16 @@ class EventService:
                 event_to_update=new_event,
                 event=event,
                 users=users,
+                groups=groups,
+                create_message=create_message,
             )
             return serviced_event
         return ServicedEvent(
             event=new_event,
             message=message,
             users=users,
+            status=status,
+            groups=groups,
         )
 
     def _update_event(
@@ -94,57 +153,51 @@ class EventService:
         event_to_update: Event,
         event: ParsedEvent,
         users: QuerySet[User],
+        groups: QuerySet[GroupChat],
+        create_message: CreateMessageService,
     ) -> ServicedEvent | None:
+        """
+        Изменение событие.
+        Проверяется список полей на наличие
+        изменений и создается словарь, где
+        - ключ - наименование поля;
+        - значение - значение поля.
+        Ключи нужны для списка полей на сохранение
+        в БД.
+        Также словарь используется для формирования текста
+        сообщения об изменении мероприятия.
+        ВНИМАНИЕ: измененное в текущие день регулярное событие
+        считается одноразовым событием в ICS данных. uid события
+        совпадает с UID регулярного созвона и будет именно изменяться,
+        а не создаваться и дублироваться два раза в календаре на текущий
+        день.
+        """
+
         changed_fields = {}
         for field in fields(event):
-            if field.name == "rrule":
+            if field.name == "rrule" or field.name == "exdate":
                 continue
             new_value = getattr(event, field.name)
             if not hasattr(event, field.name):
                 continue
             old_value = getattr(event_to_update, field.name)
             if old_value != new_value:
-                changed_fields[field.name] = (
-                    f"- изменение поля {field.name} на {new_value}.\n"
-                )
+                changed_fields[field.name] = new_value
                 setattr(event_to_update, field.name, new_value)
         if changed_fields:
             fields_list = [field for field in changed_fields.keys()]
             event_to_update.save(update_fields=fields_list)
-        message = self._generate_message(
+        message, status = create_message(
             event=event_to_update,
-            created=False,
             changed_fields=changed_fields,
         )
         return ServicedEvent(
             message=message,
             event=event_to_update,
             users=users,
+            groups=groups,
+            status=status,
         )
-
-    def _generate_message(
-        self,
-        event: Event,
-        created: bool,
-        changed_fields: dict | None,
-        dates: RegularEventDates | None = None,
-    ) -> str:
-        message = ""
-        if dates:
-            return message
-        elif created and event.date_from.date() == timezone.localdate():
-            message = "📅 Новое мероприятие в календаре:"
-            message += f"<b>{event.title.strip()}</b>\n"
-            message += f"   🕐 {event.time_for_event()}\n"
-            if event.url_for_event():
-                event_url = event.url_for_event().strip().rstrip('\\"')
-                message += f"   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
-            else:
-                message += "   🔗 Ссылка не предоставлена.\n\n"
-        elif changed_fields and event.date_from.date() == timezone.localdate():
-            message = f"📅 Изменения в мероприятии '{event.title}':\n"
-            message += "".join(changed_fields.values())
-        return message
 
     def _hardcode_calendar(self, serviced_event: ServicedEvent) -> None:
         """
@@ -160,6 +213,16 @@ class EventService:
         calendar: Calendar,
         serviced_event: ServicedEvent,
     ) -> None:
+        """
+        Добавление календаря в событие.
+        Пояснение:
+        Личные календари команды техчасти Y-lab берут часть мероприятий
+        из общего календаря, в связи с чем их UID совпадает. Так как поле
+        UID уникальное в модели Event, то событие на все календари создается
+        в 1 экземпляре. К этому событию присоедияются календари и пользователи,
+        связанные с ними.
+        """
+
         if calendar not in serviced_event.event.calendar.all():
             serviced_event.event.calendar.add(calendar)
 
@@ -167,22 +230,62 @@ class EventService:
         self,
         serviced_event: ServicedEvent,
     ) -> None:
-        for user in serviced_event.users:
-            if user not in serviced_event.event.users.all():
-                serviced_event.event.users.add(*serviced_event.users)
+        """
+        Добавление пользователей в событие.
+        """
+        serviced_event.event.users.add(*serviced_event.users)
+
+    def _add_groups_to_event(
+        self,
+        serviced_event: ServicedEvent,
+    ) -> None:
+        """
+        Добавление групп в событие.
+        """
+        serviced_event.event.groups.add(*serviced_event.groups)
 
     def _remove_users_if_not_in_calendar(
         self,
         serviced_event: ServicedEvent,
     ) -> None:
+        """
+        Удаление пользователей из события.
+        Пояснение:
+        Создано на случай, если пользователю был случайно выбран не
+        тот календарь. Иначе добавленным в календарь пользователям
+        будут приходить уведомления об создании/изменение/удаленни
+        мероприятия в которые они были добавлен в парсинге,
+        а также напоминалки о ближайшем созвоне.
+        """
+
         for user in serviced_event.event.users.all():
             if user.calendar not in serviced_event.event.calendar.all():
                 serviced_event.event.users.remove(user)
+
+    def _remove_groups_if_not_in_calendar(
+        self,
+        serviced_event: ServicedEvent,
+    ) -> None:
+        """
+        Удаление лишних групп из события.
+        """
+
+        for group in serviced_event.event.groups.all():
+            if group.calendar not in serviced_event.event.calendar.all():
+                serviced_event.event.groups.remove(group)
 
     def _calculate_parsed_rule(
         self,
         event: ParsedEvent,
     ) -> ParsedRule | None:
+        """
+        Подготовка правил регулярных мероприятий:
+        - FREQ - ежедневно/еженедельно/ежемесячно/ежегодно
+        - BYDAY - по каким дня недели
+        - INTERVAL - периодичность проведения
+        - UNTIL - до какой даты.
+        """
+
         if not event.rrule:
             return None
         return ParsedRule(
@@ -198,6 +301,15 @@ class EventService:
         rule: ParsedRule | None,
         dates: RegularEventDates | None,
     ) -> bool:
+        """
+        Проверка на то, что регулярное событие происходит
+        именно в текущий день.
+        Пояснение:
+        Регулярное событие создается 1 раз и поле date_from
+        в нем по умолчанию будет совпадать с датой и временем
+        первого раза его работы.
+        """
+
         if not rule or not dates:
             if event.date_from.date() >= timezone.localdate():
                 return True
@@ -235,6 +347,11 @@ class EventService:
         self,
         event: ParsedEvent,
     ) -> RegularEventDates:
+        """
+        Расчет дат для регулярных событий,
+        нужен для вычеслений в _check_if_event_today
+        и изменения даты проведения события.
+        """
         today = timezone.localdate()
         return RegularEventDates(
             today=today,
@@ -255,6 +372,11 @@ class EventService:
         date: datetime,
         today: date,
     ) -> datetime:
+        """
+        Замена даты регулярного события
+        на текущие день/месяц/год.
+        """
+
         return date.replace(
             year=today.year,
             month=today.month,
