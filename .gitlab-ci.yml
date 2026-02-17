@@ -85,11 +85,7 @@ build_base_python_image:
       EOL
     - export KUBE_NAMESPACE="${CI_PROJECT_NAMESPACE##*/}-${ENVIRONMENT}"
     - echo $KUBE_NAMESPACE
-    - echo "CI_PROJECT_PATH=$CI_PROJECT_PATH"
-    - echo "CI_COMMIT_REF_NAME=$CI_COMMIT_REF_NAME"
-    - echo "CI_COMMIT_REF_PROTECTED=$CI_COMMIT_REF_PROTECTED"
-    - echo "CI_ENVIRONMENT_NAME=$CI_ENVIRONMENT_NAME"
-    - "kubectl config view --minify --raw | sed -E 's/(token: ).+/\\1***REDACTED***/'"
+    - kubectl get --raw=/version -v=6 || true
     - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply --validate=false -f -
     - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
     - kubectl create secret generic ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} --from-env-file=.helm/.env -n ${KUBE_NAMESPACE//_/-}
