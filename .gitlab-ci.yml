@@ -85,6 +85,10 @@ build_base_python_image:
       EOL
     - export KUBE_NAMESPACE="${CI_PROJECT_NAMESPACE##*/}-${ENVIRONMENT}"
     - echo $KUBE_NAMESPACE
+    - kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}'; echo
+    - kubectl get --raw=/version
+    - kubectl get ns
+    - kubectl version --client --output=yaml
     - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply --validate=false -f -
     - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
     - kubectl create secret generic ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} --from-env-file=.helm/.env -n ${KUBE_NAMESPACE//_/-}
