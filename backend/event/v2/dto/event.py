@@ -17,3 +17,4 @@ class ParsedEvent:
     date_from: datetime
     date_till: datetime | None
     rrule: dict | None
+    exdate: list[datetime | None]

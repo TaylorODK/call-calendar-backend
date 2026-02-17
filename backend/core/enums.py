@@ -1,4 +1,4 @@
-from enum import IntEnum
+from enum import IntEnum, StrEnum
 
 
 class ErrorCodes(IntEnum):
@@ -9,3 +9,24 @@ class ErrorCodes(IntEnum):
     WRONG_CODE = 1005
     CODE_EXPIRED = 1006
     HAVE_ACTIVATED_USER = 1007
+
+
+class MessageEnums(StrEnum):
+    title = "- изменено название мероприятия"
+    description = "- измненено описание мероприятия"
+    url_calendar = "- изменена ссылка на календарь"
+    date_from = "- изменено время начала проведения мероприятия на"
+    date_till = "- изменено время завершения проведения мероприятия на"
+    deleted = "🚫 Отмена созвона"
+
+
+class StatusEnums(StrEnum):
+    CREATED = "created"
+    UPDATED = "updated"
+    DELETED = "deleted"
+    NO_STATUS = ""
+
+
+class TypeReceiverEnums(StrEnum):
+    USER = "user"
+    GROUP_CHAT = "group_chat"

@@ -15,3 +15,6 @@ from event.v2.dto.request_for_calendar import RequestForCalendar  # noqa
 
 # DTO for prepared data
 from event.v2.dto.prepared_data import PreparedData  # noqa
+
+# DTO for message
+from event.v2.dto.message import MessageToPrepare, MessageForSending  # noqa
