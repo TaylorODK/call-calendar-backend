@@ -89,6 +89,11 @@ build_base_python_image:
     - kubectl get --raw=/version
     - kubectl get ns
     - kubectl version --client --output=yaml
+    - echo "CI_PROJECT_PATH=$CI_PROJECT_PATH"
+    - echo "CI_PROJECT_NAMESPACE=$CI_PROJECT_NAMESPACE"
+    - echo "KUBE_CONTEXT=$KUBE_CONTEXT"
+    - kubectl config current-context || true
+    - kubectl config view --minify --raw | sed -E 's/(token: ).+/\1***REDACTED***/'
     - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply --validate=false -f -
     - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
     - kubectl create secret generic ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} --from-env-file=.helm/.env -n ${KUBE_NAMESPACE//_/-}
