@@ -51,7 +51,6 @@ def delete_non_active_events(_=None) -> None:
     events = Event.objects.filter(is_active=False)
     if events.exists():
         for event in events:
-            print(f"событие для удаления {event}")
             if event.date_from.date() == timezone.localdate():
                 create_message = CreateMessageService()
                 message, status = create_message(
