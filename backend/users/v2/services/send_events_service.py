@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from django.utils import timezone
 from core.constants import CHAT_ID
 from core.exceptions import NoReceiver
 from core.enums import TypeReceiverEnums
@@ -21,6 +22,10 @@ class SendEventsService:
         calendar_alert = self._generate_regular_message(
             alert=alert,
         )
+        if (
+            calendar_alert.message == "📭 На сегодня созвонов нет"
+        ) and self._check_today_is_weekend():
+            return
         send_telegram_message(calendar_alert=calendar_alert)
 
     def _get_prepared_data(
@@ -129,3 +134,6 @@ class SendEventsService:
             if n != len(users_with_events):
                 message += "─" * 19 + "\n\n"
         return message
+
+    def _check_today_is_weekend(self) -> bool:
+        return timezone.localdate().weekday() >= 5

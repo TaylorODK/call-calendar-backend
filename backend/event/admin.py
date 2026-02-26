@@ -11,9 +11,9 @@ class CalendarAdmin(admin.ModelAdmin):
     Админка для календарей.
     """
 
-    list_display = ("id", "key", "title")
-    list_display_links = ("key",)
-    search_fields = ("id",)
+    list_display = ("id", "title", "key")
+    list_display_links = ("title",)
+    search_fields = ("title",)
 
 
 @admin.register(Event)
@@ -33,7 +33,8 @@ class EventAdmin(admin.ModelAdmin):
         "created_at",
     )
     list_display_links = ("title",)
-    search_fields = ("title", "star", "slash", "all_event")
+    search_fields = ("title",)
+    list_filter = ("star", "slash", "all_event")
 
 
 @admin.register(GroupChat)

@@ -23,5 +23,7 @@ def update_shchedule_for_user(
 
     if not update_fields:
         return
-    if instance.is_active and "calendar_show_time" in update_fields:
+    if ("is_active" in update_fields and instance.is_active) or (
+        instance.is_active and "calendar_show_time" in update_fields
+    ):
         create_event_schedule.delay(user_id=instance.id)

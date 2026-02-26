@@ -8,9 +8,6 @@ from typing import Any
 from django.db.models import QuerySet
 from django.utils import timezone
 from event.models import Calendar, Event
-from event.v2.dto import MessageToPrepare
-from event.v2.services.sending_message_service import SendingMessageService
-from event.v2.services.create_message_service import CreateMessageService
 from core.constants import PARSE_URL
 from core.exceptions import NotWorkingParseEvent
 from event.v2.dto.event import ParsedEvent
@@ -27,7 +24,6 @@ class CalendarService:
         parsing_url = f"{PARSE_URL}{cal.key}"
         events = self._send_request_to_url(parsing_url)
         calendar = self._get_icalendar_data(events.content)
-        current_events = self._get_current_events_for_calendar(cal=cal)
         new_events = []
         for event in calendar.walk("VEVENT"):
             exdate = self._exdate_parsing(event=event)
@@ -54,11 +50,11 @@ class CalendarService:
                 new_events.append(serviced_event.event)
             else:
                 continue
-        self._delete_events_not_in_calendar(current_events, new_events)
+        self._delete_events_not_in_calendar(cal, new_events)
 
     def _delete_events_not_in_calendar(
         self,
-        current_events: list[Event],
+        cal: Calendar,
         new_events: list[Event],
     ) -> None:
         """
@@ -67,25 +63,11 @@ class CalendarService:
         если мероприятия нет в календаре, то оно удаляется
         из БД.
         """
-
+        current_events = self._get_current_events_for_calendar(cal=cal)
         for current_event in current_events:
             if current_event not in new_events:
-                if current_event.date_from.date() == timezone.localdate():
-                    create_message = CreateMessageService()
-                    message, status = create_message(
-                        event=current_event,
-                        deleted=True,
-                    )
-                    message_to_prepare = MessageToPrepare(
-                        message=message,
-                        event_id=current_event.id,
-                        status=status,
-                        users=current_event.users.all(),
-                        groups=current_event.groups.all(),
-                    )
-                    sending_message = SendingMessageService()
-                    sending_message(message_to_prepare=message_to_prepare)
-                current_event.delete()
+                current_event.is_active = False
+                current_event.save(update_fields=["is_active"])
 
     def _send_request_to_url(
         self,

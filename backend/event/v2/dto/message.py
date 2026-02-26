@@ -15,6 +15,7 @@ class MessageToPrepare(BaseMessage):
     status: str | None
     users: QuerySet[User]
     groups: QuerySet[GroupChat]
+    old_fields: dict | None = None
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)

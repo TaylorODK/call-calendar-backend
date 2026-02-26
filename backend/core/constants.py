@@ -4,7 +4,7 @@ load_dotenv()
 
 NAME_MAX_LENGTH = 255
 CODE_MAX_LENGTH = 4
-CODE_EXPIRATION_TIME = 5
+CODE_EXPIRATION_TIME = 1
 DATE_FORMAT_FOR_ALERTS = "%H:%M %d.%m.%Y"
 ALLOWED_EMAIL = ("@ylab.team", "@ylab.io")
 CALENDAR_KEY = "b2e59b301592d6a16043453b8257fd6e5a1cff89&tz_id=Europe/Moscow"

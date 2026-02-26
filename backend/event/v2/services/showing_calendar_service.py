@@ -254,7 +254,7 @@ class ShowCalendarService:
             return message
         elif no_calendar:
             message += (
-                "направить private_token "
+                "направить iCal "
                 "вашего Яндекс.Календаря в адрес администратора "
                 "@AnnnnnaAnna"
             )
@@ -366,6 +366,6 @@ class ShowCalendarService:
         if not_registered:
             message += "направить id группового чата "
         elif no_calendar:
-            message += "направить private_token " "вашего группового Яндекс.Календаря "
+            message += "направить iCal вашего группового Яндекс.Календаря "
         message += "в адрес администратора " "@AnnnnnaAnna"
         return message
