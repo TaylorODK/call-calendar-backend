@@ -28,6 +28,7 @@ class CreateMessageService:
         event: Event,
         dates: RegularEventDates | None = None,
         changed_fields: dict | None = None,
+        old_fields: dict | None = None,
         created: bool = False,
         deleted: bool = False,
     ) -> tuple[str, str]:
@@ -37,6 +38,7 @@ class CreateMessageService:
             event=event,
             dates=dates,
             changed_fields=changed_fields,
+            old_fields=old_fields,
             created=created,
             deleted=deleted,
         ):
@@ -45,17 +47,20 @@ class CreateMessageService:
         if created:
             message += self._message_for_created_event(event=event)
             status = StatusEnums.CREATED
-        elif changed_fields:
+        elif changed_fields and old_fields:
             message += self._message_for_updated_event(
                 event=event,
                 changed_fields=changed_fields,
+                old_fields=old_fields,
             )
             status = StatusEnums.UPDATED
         elif deleted:
-            message += self._message_for_deleted_event()
+            message += self._message_for_deleted_event(event=event)
             status = StatusEnums.DELETED
             return message, status
         message += self._add_shortcut(event=event)
+        event.message = message
+        event.save(update_fields=["message"])
         return message, status
 
     def _check_event(
@@ -63,6 +68,7 @@ class CreateMessageService:
         event: Event,
         dates: RegularEventDates | None,
         changed_fields: dict | None,
+        old_fields: dict | None,
         created: bool = False,
         deleted: bool = False,
     ) -> bool:
@@ -75,6 +81,8 @@ class CreateMessageService:
         elif (
             created or changed_fields
         ) and event.date_from.date() == timezone.localdate():
+            return True
+        elif old_fields and (old_fields["date_from"].date() == timezone.localdate()):
             return True
         elif deleted:
             return True
@@ -89,10 +97,7 @@ class CreateMessageService:
         Подготовка заголовка для мероприятия.
         """
 
-        if created:
-            result = "📅 Новое мероприятие в календаре"
-        else:
-            result = "📅 Изменения в мероприятии"
+        result = "📅 Мероприятие"
         result += f" '{event.title}':\n\n"
         return result
 
@@ -111,6 +116,7 @@ class CreateMessageService:
         self,
         event: Event,
         changed_fields: dict,
+        old_fields: dict,
     ) -> str:
         """
         Подготовка тела сообщения для
@@ -120,21 +126,26 @@ class CreateMessageService:
         result = ""
         for field, value in changed_fields.items():
             if field == "date_from":
-                value = self._clean_date_for_message(event.date_from)
+                new_date_from = self._clean_date_for_message(event.date_from)
+                old_date_from = self._clean_date_for_message(
+                    old_fields["date_from"],
+                )
+                value = f"с {old_date_from} на {new_date_from}"
             if field == "date_till":
                 continue
-            result += f"{MessageEnums[field].value} {value} \n"
+            result += f"{MessageEnums[field].value}{value} \n"
         return result
 
     def _message_for_deleted_event(
         self,
+        event: Event,
     ) -> str:
         """
         Подготовка тела сообщения для
         удаленного мероприятия.
         """
-
-        return MessageEnums.deleted.value
+        time_of_event = self._clean_date_for_message(event.date_from)
+        return f"Отмена встречи на {time_of_event}"
 
     def _add_shortcut(self, event: Event) -> str:
         """
@@ -144,7 +155,7 @@ class CreateMessageService:
         result = ""
         if event.url_for_event():
             event_url = event.url_for_event().strip().rstrip('\\"')
-            result += f"   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
+            result += f"\n   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
         else:
             result += "   🔗 Ссылка не предоставлена.\n\n"
         return result
@@ -158,4 +169,4 @@ class CreateMessageService:
         читаемый формат
         """
 
-        return date.strftime(DATE_FORMAT_FOR_ALERTS)
+        return timezone.localtime(date).strftime(DATE_FORMAT_FOR_ALERTS)

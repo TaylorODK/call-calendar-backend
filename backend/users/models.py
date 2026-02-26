@@ -10,13 +10,13 @@ from users.manager import UserManager
 class User(AbstractUser):
     username = None
     email = models.CharField(
-        verbose_name="Электронная почты",
+        verbose_name="Электронная почта",
         max_length=NAME_MAX_LENGTH,
         blank=False,
         unique=True,
     )
     telegram_id = models.CharField(
-        verbose_name="id телеграм",
+        verbose_name="ID телеграм",
         max_length=NAME_MAX_LENGTH,
         unique=True,
     )
@@ -52,7 +52,7 @@ class User(AbstractUser):
         verbose_name="Время отображения календаря",
         blank=True,
         null=True,
-        default=None,
+        default="08:00",
     )
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["telegram_id"]

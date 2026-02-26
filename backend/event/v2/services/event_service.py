@@ -16,6 +16,7 @@ from core.constants import (
     BYDAY_MAP,
     CALENDAR_KEY,
 )
+from core.enums import StatusEnums
 from users.models import User
 
 
@@ -67,10 +68,6 @@ class EventService:
             create_message=create_message,
         )
         if serviced_event:
-            self._add_calendar_to_event(
-                serviced_event=serviced_event,
-                calendar=calendar,
-            )
             self._add_users_to_event(serviced_event=serviced_event)
             self._add_groups_to_event(serviced_event=serviced_event)
             self._remove_users_if_not_in_calendar(
@@ -80,6 +77,9 @@ class EventService:
                 serviced_event=serviced_event,
             )
             if serviced_event.message:
+                if serviced_event.status == StatusEnums.UPDATED:
+                    serviced_event.users = serviced_event.event.users.all()
+                    serviced_event.groups = serviced_event.event.groups.all()
                 message_service = SendingMessageService()
                 message_to_prepare = MessageToPrepare(
                     message=serviced_event.message,
@@ -87,8 +87,13 @@ class EventService:
                     status=serviced_event.status,
                     users=serviced_event.users,
                     groups=serviced_event.groups,
+                    old_fields=serviced_event.olf_fields,
                 )
                 message_service(message_to_prepare=message_to_prepare)
+            self._add_calendar_to_event(
+                serviced_event=serviced_event,
+                calendar=calendar,
+            )
             if calendar.key == CALENDAR_KEY:
                 self._hardcode_calendar(serviced_event=serviced_event)
             return serviced_event
@@ -172,7 +177,7 @@ class EventService:
         а не создаваться и дублироваться два раза в календаре на текущий
         день.
         """
-
+        old_fields = {}
         changed_fields = {}
         for field in fields(event):
             if field.name == "rrule" or field.name == "exdate":
@@ -182,6 +187,7 @@ class EventService:
                 continue
             old_value = getattr(event_to_update, field.name)
             if old_value != new_value:
+                old_fields[field.name] = old_value
                 changed_fields[field.name] = new_value
                 setattr(event_to_update, field.name, new_value)
         if changed_fields:
@@ -190,6 +196,7 @@ class EventService:
         message, status = create_message(
             event=event_to_update,
             changed_fields=changed_fields,
+            old_fields=old_fields,
         )
         return ServicedEvent(
             message=message,
@@ -197,6 +204,7 @@ class EventService:
             users=users,
             groups=groups,
             status=status,
+            olf_fields=old_fields,
         )
 
     def _hardcode_calendar(self, serviced_event: ServicedEvent) -> None:

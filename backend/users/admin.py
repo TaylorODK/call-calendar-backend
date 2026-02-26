@@ -6,7 +6,13 @@ from typing import Any
 
 @admin.register(User)
 class UserAdmin(admin.ModelAdmin):
-    list_display = ("id", "email", "telegram_id", "calendar_key")
+    list_display = (
+        "id",
+        "email",
+        "telegram_id",
+        "calendar",
+        "calendar_show_time",
+    )
     list_display_links = (
         "id",
         "email",

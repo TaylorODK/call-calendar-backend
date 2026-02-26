@@ -1,9 +1,16 @@
 # Сериализаторы регистрации пользователя
 from users.v2.serializers.registration_serializers import (
-    CodeConfirmSerializer,  # noqa
-    LoginCodeCreateSerializer,  # noqa
-    CheckRegistrationDataSerializer,  # noqa
+    CheckRegistrationDataSerializer,
+    CodeConfirmSerializer,
+    LoginCodeCreateSerializer,
 )
 
 # Сериализатор для установки и изменения времени отображения календаря
-from users.v2.serializers.set_time_serializer import SetShowTimeSerializer  # noqa
+from users.v2.serializers.set_time_serializer import SetShowTimeSerializer
+
+all = [
+    CheckRegistrationDataSerializer,
+    CodeConfirmSerializer,
+    LoginCodeCreateSerializer,
+    SetShowTimeSerializer,
+]

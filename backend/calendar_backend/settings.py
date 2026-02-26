@@ -47,6 +47,7 @@ CSRF_TRUSTED_ORIGINS = os.getenv(
 # Application definition
 
 INSTALLED_APPS = [
+    "jazzmin",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -162,6 +163,7 @@ EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL")
 
 # CELERY
+CALENDAR_UPDATE_PERIOD = 10
 REDIS_HOST = os.getenv("REDIS_HOST")
 CELERY_BROKER_URL = f"redis://{REDIS_HOST}:6379"
 CELERY_RESULT_BACKEND = f"redis://{REDIS_HOST}:6379"
@@ -171,9 +173,9 @@ CELERY_TIMEZONE = "Europe/Moscow"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_WORKER_REVOKES_MAXCELERY_WORKER_REVOKE_EXPIRES = 0
 CELERY_BEAT_SCHEDULE = {
-    "update_calendar_every_15_minutes": {
+    "update_calendar": {
         "task": "event.tasks.start_update_calendar",
-        "schedule": crontab(minute="*/15"),
+        "schedule": crontab(minute=f"*/{CALENDAR_UPDATE_PERIOD}"),
     },
     "delete_old_events_every_day": {
         "task": "event.tasks.clear_old_events",
@@ -261,3 +263,51 @@ LOGGING = {
 }
 
 logging.config.dictConfig(LOGGING)
+
+# Jazzmin
+JAZZMIN_SETTINGS = {
+    "site_title": "Call-calendar Панель управления",
+    "site_header": "Call-calendar",
+    "site_brand": "Call-calendar",
+    "welcome_sign": "Добро пожаловать в панель администратора Call-calendar",
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    # Hide these apps when generating side menu e.g (auth)
+    "hide_apps": [],
+    # Hide these models when generating side menu (e.g auth.user)
+    "hide_models": [
+        "auth.group",
+        "django_celery_beat.solarschedule",
+        "django_celery_beat.intervalschedule",
+    ],
+    # List of apps (and/or models) to base side menu ordering off of (does not need to contain all apps/models)
+    "order_with_respect_to": [
+        "users",
+        "users.User",
+        "event",
+        "event.GroupChat",
+        "event.Event",
+        "event.Calendar" "django_celery_beat",
+        "django_celery_beat.crontabschedule",
+        "django_celery_beat.clockedschedule",
+        "django_celery_beat.periodictask",
+    ],
+    # Custom icons for side menu apps/models See https://fontawesome.com/icons?d=gallery&m=free&v=5.0.0,5.0.1,5.0.10,5.0.11,5.0.12,5.0.13,5.0.2,5.0.3,5.0.4,5.0.5,5.0.6,5.0.7,5.0.8,5.0.9,5.1.0,5.1.1,5.2.0,5.3.0,5.3.1,5.4.0,5.4.1,5.4.2,5.13.0,5.12.0,5.11.2,5.11.1,5.10.0,5.9.0,5.8.2,5.8.1,5.7.2,5.7.1,5.7.0,5.6.3,5.5.0,5.4.2
+    # for the full list of 5.13.0 free icon classes
+    "icons": {
+        "users.User": "fa-solid fa-person",
+        "event.GroupChat": "fa-solid fa-people-group",
+        "event.Event": "fa-solid fa-calendar-plus",
+        "event.Calendar": "fa-regular fa-calendar",
+        "django_celery_beat.crontabschedule": "fa-solid fa-clock",
+        "django_celery_beat.clockedschedule": "fa-solid fa-thumbtack",
+        "django_celery_beat.periodictask": "fa-solid fa-list",
+    },
+    # Icons that are used when one is not manually specified
+    "default_icon_parents": "fas fa-chevron-circle-right",
+    "default_icon_children": "fas fa-circle",
+}
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "sandstone",
+}

@@ -1,13 +1,17 @@
 import logging
 import json
 from datetime import timedelta
-from celery import shared_task
+from celery import shared_task, chord
 import requests
 from django_celery_beat.models import ClockedSchedule, PeriodicTask
 from django.utils import timezone
 from event.models import Calendar, Event
-from event.v2.dto import PreparedData, MessageForSending
-from event.v2.services.calendar_service import CalendarService
+from event.v2.dto import PreparedData, MessageForSending, MessageToPrepare
+from event.v2.services import (
+    CalendarService,
+    CreateMessageService,
+    SendingMessageService,
+)
 from calendar_backend.settings import BOT_TOKEN
 from core.constants import ALERT_TIME_BEFORE_EVENT
 from core.exceptions import NotFoundEvent
@@ -19,7 +23,7 @@ calendar_logger = logging.getLogger("calendar")
 
 
 @shared_task
-def run_base_update(calendar_id: int) -> None:
+def run_base_update(calendar_id: int):
     """
     Таска по обновлению календаря.
     """
@@ -37,11 +41,39 @@ def start_update_calendar() -> None:
     """
 
     calendar_logger.info("Начало задачи по обновлению календарей")
-    for calendar_id in Calendar.objects.values_list("id", flat=True):
-        run_base_update.delay(calendar_id)
+    ids = list(Calendar.objects.values_list("id", flat=True))
+
+    chord(run_base_update.s(cid) for cid in ids)(delete_non_active_events.s())
 
 
 @shared_task
+def delete_non_active_events(_=None) -> None:
+    events = Event.objects.filter(is_active=False)
+    if events.exists():
+        for event in events:
+            if event.date_from.date() == timezone.localdate():
+                create_message = CreateMessageService()
+                message, status = create_message(
+                    event=event,
+                    deleted=True,
+                )
+                message_to_prepare = MessageToPrepare(
+                    message=message,
+                    event_id=event.id,
+                    status=status,
+                    users=event.users.all(),
+                    groups=event.groups.all(),
+                )
+                sending_message = SendingMessageService()
+                sending_message(message_to_prepare=message_to_prepare)
+            event.delete()
+
+
+@shared_task(
+    retry_kwargs={"max_retries": 5, "countdown": 5},
+    retry_backoff=False,
+    retry_jitter=True,
+)
 def send_telegram_message(
     prepared_message: MessageForSending | None = None,
     prepared_data: PreparedData | None = None,
@@ -65,43 +97,48 @@ def send_telegram_message(
             Event.objects.filter(id=prepared_message.event_id).first()
         except Event.DoesNotExist:
             raise NotFoundEvent
+        text = prepared_message.message
         for group_tg in prepared_message.groups_tg_ids:
-            data = {
-                "chat_id": group_tg,
-                "text": prepared_message.message,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }
-            response = requests.post(url, json=data)
-            responses.append(response.json)
+            chat_id = group_tg
+            data = make_data_for_response(chat_id=chat_id, text=text)
+            responses.append(call_response(url=url, data=data))
         for user_tg in prepared_message.users_tg_ids:
-            data = {
-                "chat_id": user_tg,
-                "text": prepared_message.message,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }
-            response = requests.post(url, json=data)
-            responses.append(response.json)
+            chat_id = user_tg
+            data = make_data_for_response(chat_id=chat_id, text=text)
+            responses.append(call_response(url=url, data=data))
     elif prepared_data:
-        data = {
-            "chat_id": prepared_data.telegram_id,
-            "text": prepared_data.message,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        response = requests.post(url, json=data)
-        responses.append(response.json)
+        chat_id = prepared_data.telegram_id
+        text = prepared_data.message
+        data = make_data_for_response(chat_id=chat_id, text=text)
+        responses.append(call_response(url=url, data=data))
     elif calendar_alert:
-        data = {
-            "chat_id": calendar_alert.telegram_id,
-            "text": calendar_alert.message,
-            "parse_mode": "HTML",
-            "disable_web_page_preview": True,
-        }
-        response = requests.post(url, json=data)
-        responses.append(response.json)
+        chat_id = calendar_alert.telegram_id
+        text = calendar_alert.message
+        data = make_data_for_response(chat_id=chat_id, text=text)
+        responses.append(call_response(url=url, data=data))
     return responses if responses else None
+
+
+def make_data_for_response(chat_id: str, text: str) -> dict:
+    """
+    Подготовка данных для отправки сообщения
+    """
+
+    return {
+        "chat_id": chat_id,
+        "text": text,
+        "parse_mode": "HTML",
+        "disable_web_page_preview": True,
+    }
+
+
+def call_response(url: str, data: dict):
+    """
+    Отправка сообщения
+    """
+
+    response = requests.post(url, json=data)
+    return response.json
 
 
 @shared_task
@@ -182,12 +219,10 @@ def send_alert(event_id: int) -> None:
         else:
             letter += "   🔗 Ссылка не предоставлена.\n\n"
         for user in users:
-            data = {
-                "chat_id": user.telegram_id,
-                "text": letter,
-                "parse_mode": "HTML",
-                "disable_web_page_preview": True,
-            }
+            data = make_data_for_response(
+                chat_id=user.telegram_id,
+                text=letter,
+            )
             requests.post(url, json=data)
 
 
