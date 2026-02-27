@@ -110,7 +110,7 @@ class CreateMessageService:
         созданного мероприятия.
         """
 
-        return f"   🕐 {event.time_for_event()}\n"
+        return f"Новая встреча на {event.time_for_event()} {event.date_from.date()}\n"
 
     def _message_for_updated_event(
         self,
