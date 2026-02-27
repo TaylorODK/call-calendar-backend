@@ -52,21 +52,26 @@ def delete_non_active_events(_=None) -> None:
     if events.exists():
         for event in events:
             if event.date_from.date() == timezone.localdate():
-                create_message = CreateMessageService()
-                message, status = create_message(
-                    event=event,
-                    deleted=True,
-                )
-                message_to_prepare = MessageToPrepare(
-                    message=message,
-                    event_id=event.id,
-                    status=status,
-                    users=event.users.all(),
-                    groups=event.groups.all(),
-                )
-                sending_message = SendingMessageService()
-                sending_message(message_to_prepare=message_to_prepare)
+                send_message_about_event(event=event)
             event.delete()
+
+
+def send_message_about_event(event: Event) -> None:
+    logging.info(f"Удаление мероприятия {event.title}")
+    create_message = CreateMessageService()
+    message, status = create_message(
+        event=event,
+        deleted=True,
+    )
+    message_to_prepare = MessageToPrepare(
+        message=message,
+        event_id=event.id,
+        status=status,
+        users=event.users.all(),
+        groups=event.groups.all(),
+    )
+    sending_message = SendingMessageService()
+    sending_message(message_to_prepare=message_to_prepare)
 
 
 @shared_task(
