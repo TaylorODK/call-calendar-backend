@@ -1,6 +1,6 @@
 import re
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta
 from dataclasses import dataclass
 from requests import Response
 from icalendar import Calendar as ICalendar
@@ -8,7 +8,7 @@ from typing import Any
 from django.db.models import QuerySet
 from django.utils import timezone
 from event.models import Calendar, Event
-from core.constants import PARSE_URL
+from core.constants import PARSE_URL, PARSIN_AHEAD_DAYS
 from core.exceptions import NotWorkingParseEvent
 from event.v2.dto.event import ParsedEvent
 from event.v2.services.event_service import EventService
@@ -41,6 +41,10 @@ class CalendarService:
                 rrule=event.get("RRULE") if event.get("RRULE") else None,
                 exdate=exdate,
             )
+            if event_to_service.date_from.date() > (
+                timezone.localdate() + timedelta(days=PARSIN_AHEAD_DAYS)
+            ):
+                continue
             event_service = EventService()
             serviced_event = event_service(
                 event=event_to_service,
