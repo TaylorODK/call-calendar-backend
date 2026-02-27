@@ -41,6 +41,7 @@ dependencies = [
     { name = "django" },
     { name = "django-celery-beat" },
     { name = "django-crontab" },
+    { name = "django-jazzmin" },
     { name = "djangorestframework" },
     { name = "icalendar" },
     { name = "pre-commit" },
@@ -59,6 +60,7 @@ requires-dist = [
     { name = "django", specifier = ">=5.2.7" },
     { name = "django-celery-beat", specifier = ">=2.8.1" },
     { name = "django-crontab", specifier = ">=0.7.1" },
+    { name = "django-jazzmin", specifier = ">=3.0.2" },
     { name = "djangorestframework", specifier = ">=3.16.1" },
     { name = "icalendar", specifier = ">=6.3.2" },
     { name = "pre-commit", specifier = ">=4.3.0" },
@@ -267,6 +269,18 @@ dependencies = [
     { name = "django" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/37/bd/a122ba96167f5dfab70a58ca22fa046b7ef1ebad9ff026f7831bd6c2a49c/django-crontab-0.7.1.tar.gz", hash = "sha256:1201810a212460aaaa48eb6a766738740daf42c1a4f6aafecfb1525036929236", size = 7089, upload-time = "2016-03-07T19:35:54.714Z" }
+
+[[package]]
+name = "django-jazzmin"
+version = "3.0.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "django" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/1b/1e/1ac1b4b916d86c3bbe950ddb8c952452f833c3b687e0d0cdbc824d3a9df6/django_jazzmin-3.0.2.tar.gz", hash = "sha256:cb247757b1e71f0c0f97d776856a32c3dd1377a7ffda6a731879cdc5e0e9ae89", size = 2361868, upload-time = "2026-02-08T17:37:10.435Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ff/21/38d96baf6733c77dc51aeda953aec0a401f11b1d373f00efd92c05b3c0f9/django_jazzmin-3.0.2-py3-none-any.whl", hash = "sha256:e847be81f9704ba70b740fa8378781bd1412e9d09772ba0e6a0c8b56fcdf84d4", size = 2441213, upload-time = "2026-02-08T17:37:08.146Z" },
+]
 
 [[package]]
 name = "django-timezone-field"

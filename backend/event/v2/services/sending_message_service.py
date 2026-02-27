@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from django.db.models import QuerySet
 from django.utils import timezone
-from event.models import Event, GroupChat
+from event.models import Event, GroupChat, SendedMessages
 from event.v2.dto import MessageToPrepare, MessageForSending
 from core.exceptions import NotFoundEvent
 from core.enums import StatusEnums
@@ -27,6 +27,7 @@ class SendingMessageService:
         if (
             not self._check_if_actual(
                 event=event,
+                old_fields=message_to_prepare.old_fields,
             )
             or message_to_prepare.status == StatusEnums.NO_STATUS
         ):
@@ -40,6 +41,14 @@ class SendingMessageService:
             groups_tg_ids=groups_list,
         )
         send_telegram_message(prepared_message=prepared_message)
+        if message_to_prepare.status == StatusEnums.CREATED:
+            sended_messages, _ = SendedMessages.objects.get_or_create(
+                event=event,
+            )
+            if message_to_prepare.users:
+                sended_messages.users.add(*message_to_prepare.users)
+            if message_to_prepare.groups:
+                sended_messages.groups.add(*message_to_prepare.groups)
 
     def _check_event(self, event_id: int) -> Event:
         """
@@ -55,6 +64,7 @@ class SendingMessageService:
     def _check_if_actual(
         self,
         event: Event,
+        old_fields: dict | None = None,
     ) -> bool:
         """
         Проверка на совпадение даты
@@ -62,6 +72,8 @@ class SendingMessageService:
         """
 
         if event.date_from.date() == timezone.localdate():
+            return True
+        elif old_fields and old_fields["date_from"].date() == timezone.localdate():
             return True
         return False
 

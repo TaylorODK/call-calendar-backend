@@ -34,14 +34,6 @@ class EmailCheckViewSet(GenericViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         telegram_id = request.headers.get("telegram-id")
-        chat_id = request.data.get("chat_id")
-        if telegram_id != chat_id:
-            return Response(
-                {
-                    "detail": "Для регистрации группового чата обратитесь к @AnnnnnaAnna",
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
         serializer = CheckRegistrationDataSerializer(
             data={
                 "telegram_id": telegram_id,

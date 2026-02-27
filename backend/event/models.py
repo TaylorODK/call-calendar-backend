@@ -79,6 +79,11 @@ class Event(BaseModel):
         related_name="events",
         blank=True,
     )
+    message = models.TextField(
+        verbose_name="Текст сообщения",
+        blank=True,
+        null=True,
+    )
 
     class Meta:
         verbose_name = "Мероприятие"
@@ -150,3 +155,24 @@ class GroupChat(models.Model):
 
     def __str__(self) -> str:
         return f"{self.title}"
+
+
+class SendedMessages(models.Model):
+    event = models.OneToOneField(
+        "event.Event",
+        blank=False,
+        on_delete=models.CASCADE,
+    )
+    users = models.ManyToManyField(
+        "users.User",
+        blank=True,
+    )
+    groups = models.ManyToManyField(
+        "event.GroupChat",
+        blank=True,
+    )
+
+    class Meta:
+        default_related_name = "messages"
+        verbose_name = "Отправленное сообщение"
+        verbose_name_plural = "Отправленные сообщения"
