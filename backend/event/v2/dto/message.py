@@ -13,8 +13,8 @@ class BaseMessage:
 @dataclass(slots=True, frozen=True, kw_only=True)
 class MessageToPrepare(BaseMessage):
     status: str | None
-    users: QuerySet[User]
-    groups: QuerySet[GroupChat]
+    users: QuerySet[User] | tuple[User]
+    groups: QuerySet[GroupChat] | tuple[User]
     old_fields: dict | None = None
 
 

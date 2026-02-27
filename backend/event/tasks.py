@@ -5,7 +5,7 @@ from celery import shared_task, chord
 import requests
 from django_celery_beat.models import ClockedSchedule, PeriodicTask
 from django.utils import timezone
-from event.models import Calendar, Event
+from event.models import Calendar, Event, GroupChat
 from event.v2.dto import PreparedData, MessageForSending, MessageToPrepare
 from event.v2.services import (
     CalendarService,
@@ -15,6 +15,7 @@ from event.v2.services import (
 from calendar_backend.settings import BOT_TOKEN
 from core.constants import ALERT_TIME_BEFORE_EVENT
 from core.exceptions import NotFoundEvent
+from users.models import User
 from users.v2.dto import CalendarAlert
 
 
@@ -48,25 +49,40 @@ def start_update_calendar() -> None:
 
 @shared_task
 def delete_non_active_events(_=None) -> None:
-    events = Event.objects.filter(is_active=False)
-    if events.exists():
-        for event in events:
-            if event.date_from.date() == timezone.localdate():
-                create_message = CreateMessageService()
-                message, status = create_message(
-                    event=event,
-                    deleted=True,
-                )
-                message_to_prepare = MessageToPrepare(
-                    message=message,
-                    event_id=event.id,
-                    status=status,
-                    users=event.users.all(),
-                    groups=event.groups.all(),
-                )
-                sending_message = SendingMessageService()
-                sending_message(message_to_prepare=message_to_prepare)
-            event.delete()
+    for event in Event.objects.filter(
+        is_active=False,
+    ).prefetch_related(
+        "users",
+        "groups",
+        "calendar",
+    ):
+        if event.date_from.date() == timezone.localdate():
+            users = tuple(event.users.all())
+            groups = tuple(event.groups.all())
+            send_message_about_event(event=event, users=users, groups=groups)
+        event.delete()
+
+
+def send_message_about_event(
+    event: Event,
+    users: tuple[User],
+    groups: tuple[GroupChat],
+) -> None:
+    logging.info(f"Удаление мероприятия {event.title}")
+    create_message = CreateMessageService()
+    message, status = create_message(
+        event=event,
+        deleted=True,
+    )
+    message_to_prepare = MessageToPrepare(
+        message=message,
+        event_id=event.id,
+        status=status,
+        users=users,
+        groups=groups,
+    )
+    sending_message = SendingMessageService()
+    sending_message(message_to_prepare=message_to_prepare)
 
 
 @shared_task(
