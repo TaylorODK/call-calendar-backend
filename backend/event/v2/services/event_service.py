@@ -78,6 +78,9 @@ class EventService:
             )
             if serviced_event.message:
                 if serviced_event.status == StatusEnums.UPDATED:
+                    print(serviced_event.event.title)
+                    print(serviced_event.event.users.all())
+                    print(serviced_event.event.groups.all())
                     serviced_event.users = serviced_event.event.users.all()
                     serviced_event.groups = serviced_event.event.groups.all()
                 message_service = SendingMessageService()
