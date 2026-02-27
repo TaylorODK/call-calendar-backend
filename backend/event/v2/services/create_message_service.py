@@ -110,7 +110,7 @@ class CreateMessageService:
         созданного мероприятия.
         """
 
-        return f"   🕐 {event.time_for_event()}\n"
+        return f"Новая встреча на {event.time_for_event()} {event.date_from.date()}\n"
 
     def _message_for_updated_event(
         self,
@@ -155,9 +155,9 @@ class CreateMessageService:
         result = ""
         if event.url_for_event():
             event_url = event.url_for_event().strip().rstrip('\\"')
-            result += f"\n   🔗 <a href='{event_url}'>Ссылка</a>\n\n"
+            result += f"\n🔗 <a href='{event_url}'>Ссылка</a>\n\n"
         else:
-            result += "   🔗 Ссылка не предоставлена.\n\n"
+            result += "\n🔗 Ссылка не предоставлена.\n\n"
         return result
 
     def _clean_date_for_message(

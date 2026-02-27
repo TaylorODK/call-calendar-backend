@@ -9,6 +9,7 @@ DATE_FORMAT_FOR_ALERTS = "%H:%M %d.%m.%Y"
 ALLOWED_EMAIL = ("@ylab.team", "@ylab.io")
 CALENDAR_KEY = "b2e59b301592d6a16043453b8257fd6e5a1cff89&tz_id=Europe/Moscow"
 ALERT_TIME_BEFORE_EVENT = 10
+PARSIN_AHEAD_DAYS = 5
 # CALENDAR_KEY = os.getenv("CALENDAR_KEY")
 CHAT_ID = "-1003577506308"
 PARSE_URL = "https://calendar.yandex.ru/export/ics.xml?private_token="
