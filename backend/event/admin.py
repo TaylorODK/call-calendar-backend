@@ -27,14 +27,11 @@ class EventAdmin(admin.ModelAdmin):
         "title",
         "date_from",
         "date_till",
-        "star",
-        "slash",
-        "all_event",
         "created_at",
     )
     list_display_links = ("title",)
     search_fields = ("title",)
-    list_filter = ("star", "slash", "all_event")
+    list_filter = ("calendar__title", "users", "groups")
 
     def get_queryset(self, request):
         qs = super().get_queryset(request)
@@ -42,6 +39,8 @@ class EventAdmin(admin.ModelAdmin):
             "calendar",
             "users",
             "groups",
+        ).order_by(
+            "date_from",
         )
 
 
