@@ -36,6 +36,14 @@ class EventAdmin(admin.ModelAdmin):
     search_fields = ("title",)
     list_filter = ("star", "slash", "all_event")
 
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        return qs.prefetch_related(
+            "calendar",
+            "users",
+            "groups",
+        )
+
 
 @admin.register(GroupChat)
 class GroupAdmin(admin.ModelAdmin):
