@@ -1,0 +1,54 @@
+---
+{{- if eq .Values.storage.driverType "democratic" }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $.Release.Name }}-{{ $.Values.stage }}-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: democratic-csi-smb-hetzner-storagebox
+  mountOptions:
+    - dir_mode=0777
+    - file_mode=0777
+  csi:
+    driver: org.democratic-csi.node-manual
+    readOnly: false
+    fsType: cifs
+    volumeHandle: {{ $.Release.Name }}-{{ $.Values.stage }}-volume  # make sure it's a unique id in the cluster
+    volumeAttributes:
+      node_attach_driver: smb
+      provisioner_driver: node-manual
+      server: {{ $.Values.storage.url }}
+      share: {{ $.Release.Name }}-{{ $.Values.stage }}-volume
+    nodeStageSecretRef:
+      name: democratic-csi-smb-hetzner-storagebox-secret
+      namespace: democratic-csi
+{{- else if eq .Values.storage.driverType "official" }}
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: {{ $.Release.Name }}-{{ $.Values.stage }}-pv
+spec:
+  capacity:
+    storage: 5Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: hetzner-storagebox
+  mountOptions:
+    - dir_mode=0777
+    - file_mode=0777
+  csi:
+    driver: smb.csi.k8s.io
+    readOnly: false
+    volumeHandle: {{ $.Release.Name }}-{{ $.Values.stage }}-volume  # make sure it's a unique id in the cluster
+    volumeAttributes:
+      source: "{{ $.Values.storage.url }}/{{ $.Release.Name }}-{{ $.Values.stage }}-volume"
+    nodeStageSecretRef:
+      name: hetzner-storagebox-creds
+      namespace: default
+{{- end }}

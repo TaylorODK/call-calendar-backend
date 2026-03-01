@@ -1,0 +1,299 @@
+import logging
+import re
+import requests
+from datetime import datetime
+from typing import Optional
+from icalendar import Calendar as ICalendar
+from django.db.models import Q, QuerySet
+from django.utils import timezone
+from event.models import Calendar, Event
+from event.serializers import EventShowSerializer
+from users.models import User
+
+
+calendar_logger = logging.getLogger("calendar")
+
+
+def set_users_for_event(
+    event: Event,
+    cal: Calendar,
+) -> None:
+    event.check_for_star_slash()
+    event.save(update_fields=["star", "slash", "aiterus", "all_event"])
+    if bool(re.search(r"/\*$", event.title)):
+        users = User.objects.filter(
+            Q(show_star_events=True) | Q(show_slash_events=True),
+            calendar=cal,
+        )
+    elif "*" in event.title:
+        users = User.objects.filter(calendar=cal, show_star_events=True)
+    elif bool(re.search(r"/$", event.title)):
+        users = User.objects.filter(calendar=cal, show_slash_events=True)
+    elif bool(re.search(r"\b[Аа][ий]терус\b", event.title)):
+        users = User.objects.filter(calendar=cal, show_aiterus=True)
+    else:
+        users = User.objects.filter(
+            calendar=cal,
+            show_aiterus=False,
+        )
+    for user in users:
+        event.users.add(user)
+
+
+def update_or_create_event(
+    uid: str,
+    title: str,
+    description: str,
+    url_calendar: str,
+    date_from: datetime,
+    date_till: Optional[datetime],
+    cal: Calendar,
+) -> Event | None:
+    message = "Empty"
+    subject = ""
+    event, created = Event.objects.get_or_create(
+        uid=uid,
+        defaults={
+            "title": title,
+            "description": description,
+            "url_calendar": url_calendar,
+            "date_from": date_from,
+            "date_till": date_till,
+        },
+    )
+    if not created and cal not in event.calendar.all():
+        event.calendar.add(cal)
+        message = (
+            f"Новое мероприятие: \n '{title}' ,"
+            f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
+        )
+        subject = "Новое мероприятие"
+    elif not created and cal in event.calendar.all():
+        changed_fields = {}
+        if event.title != title:
+            event.title = title
+            changed_fields["title"] = f"изменилась тема на '{title}'."
+        if event.description != description:
+            event.description = description
+            changed_fields["description"] = f"изменилось описание {description}."
+        if event.url_calendar != url_calendar:
+            event.url_calendar = url_calendar
+            changed_fields["url_calendar"] = (
+                f"изменилась ссылка в календаре {url_calendar}"
+            )
+        if event.date_from != date_from:
+            event.date_from = date_from
+            changed_fields["date_from"] = f"изменилось время начала на {date_from}."
+        if event.date_till != date_till:
+            event.date_till = date_till
+            changed_fields["date_till"] = f"изменилось время завершения на {date_till}."
+        if changed_fields:
+            fields_list = [field for field in changed_fields.keys()]
+            event.save(update_fields=fields_list)
+            calendar_logger.info(f"Обновление события {event.title}")
+            if (
+                event.date_from.date() == timezone.localdate()
+                or date_from.date() == timezone.localdate()
+            ):
+                subject = f"Изменения в мероприятии {event.title}"
+                message = f"{subject}: \n{". ".join(changed_fields.values())}"
+    if created and date_from.date() == timezone.localdate():
+        event.calendar.add(cal)
+        message = (
+            f"Новое мероприятие: \n '{title}' ,"
+            f" дата начала - {date_from.strftime("%Y-%m-%d %H:%M")}"
+        )
+        subject = "Новое мероприятие"
+        calendar_logger.info(f"Создание нового события {event.title}")
+    set_users_for_event(event, cal)
+    if message != "Empty":
+        from event.tasks import send_telegram_message
+
+        send_telegram_message(cal, message, subject, event)
+    return event
+
+
+def delete_events_not_in_calendar(current_events: list, new_events: list) -> None:
+    for current_event in current_events:
+        if current_event not in new_events:
+            if current_event.date_from.date() == timezone.localdate():
+                message = f"Мероприятие '{current_event.title}' удалено из графика"
+                subject = "Удалено мероприятие"
+                from event.tasks import send_telegram_message
+
+                send_telegram_message(message, subject, event=current_event)
+                calendar_logger.info(
+                    f"Удалено мероприятие '{current_event.title}'",
+                )
+            current_event.delete()
+
+
+def parse_ics(cal: Calendar) -> None:
+    url = f"https://calendar.yandex.ru/export/ics.xml?private_token={cal.key}"
+    try:
+        events = requests.get(url)
+        events.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        calendar_logger.error(
+            f"Не удалось обновить календарь '{cal.title}': {e}",
+        )
+        return
+    calendar = ICalendar.from_ical(events.content)
+    current_events = Event.objects.filter(
+        date_from__gt=timezone.now(),
+        calendar=cal,
+    )
+    new_events = []
+    for event in calendar.walk("VEVENT"):
+        uid = str(event.get("uid"))
+        title = str(event.get("summary", ""))
+        description = str(event.get("description", ""))
+        url_calendar = str(event.get("url", ""))
+        date_from = event.get("dtstart").dt
+        date_till = event.get("dtend").dt if event.get("dtend") else None
+        rrule = event.get("RRULE") if event.get("RRULE") else None
+        if rrule:
+            rules = parse_rule(rrule)
+            if rules["UNTIL"] and rules["UNTIL"].date() < timezone.localdate():
+                continue
+            regular_event = create_this_day_regular_event(
+                uid,
+                title,
+                description,
+                url_calendar,
+                date_from,
+                date_till,
+                cal,
+                rules,
+            )
+            new_events.append(regular_event)
+            continue
+        if date_from.date() < timezone.localdate():
+            continue
+        new_event = update_or_create_event(
+            uid,
+            title,
+            description,
+            url_calendar,
+            date_from,
+            date_till,
+            cal,
+        )
+        new_events.append(new_event)
+    delete_events_not_in_calendar(current_events, new_events)
+
+
+def create_this_day_regular_event(
+    uid,
+    title,
+    description,
+    url_calendar,
+    date_from,
+    date_till,
+    cal,
+    rules,
+):
+    today = timezone.localdate()
+    week_number = (today.day - 1) // 7 + 1
+    byday_map = {
+        0: "MO",
+        1: "TU",
+        2: "WE",
+        3: "TH",
+        4: "FR",
+        5: "SA",
+        6: "SU",
+    }
+    new_date_from = date_from.replace(year=today.year, month=today.month, day=today.day)
+    new_date_till = date_till.replace(year=today.year, month=today.month, day=today.day)
+    weeks_from_start_event = (today - date_from.date()).days // 7
+    if rules["FREQ"] == "WEEKLY":
+        for day in rules["BYDAY"]:
+            if byday_map[today.weekday()] == day and (
+                weeks_from_start_event % int(rules["INTERVAL"]) == 0
+            ):
+                event, created = Event.objects.get_or_create(
+                    uid=uid,
+                    defaults={
+                        "title": title,
+                        "description": description,
+                        "url_calendar": url_calendar,
+                        "date_from": new_date_from,
+                        "date_till": new_date_till,
+                    },
+                )
+                set_users_for_event(event, cal)
+                if created:
+                    event.calendar.add(cal)
+                    calendar_logger.info(
+                        f"Создание нового WEEKLY события {event.title}",
+                    )
+                return event
+    elif rules["FREQ"] == "MONTHLY":
+        event_week_number = int(rules["BYDAY"][0][:-2])
+        event_week_day = rules["BYDAY"][0][-2:]
+        if (
+            week_number == event_week_number
+            and byday_map[today.weekday()] == event_week_day
+        ):
+            event, created = Event.objects.get_or_create(
+                uid=uid,
+                defaults={
+                    "title": title,
+                    "description": description,
+                    "url_calendar": url_calendar,
+                    "date_from": new_date_from,
+                    "date_till": new_date_till,
+                },
+            )
+            set_users_for_event(event, cal)
+            if created:
+                event.calendar.add(cal)
+                calendar_logger.info(
+                    f"Создание нового MONTHLY события {event.title}",
+                )
+            return event
+
+
+def parse_rule(rrule):
+    return {
+        "FREQ": rrule.get("FREQ", [None])[0],
+        "BYDAY": rrule.get("BYDAY", []),
+        "INTERVAL": int(rrule.get("INTERVAL", [1])[0]),
+        "UNTIL": rrule.get("UNTIL", [None])[0],
+    }
+
+
+def events_for_group(
+    events_qs: QuerySet[Event],
+    no_events: bool = True,
+) -> list | None:
+    results = []
+    star_events = events_qs.filter(star=True)
+    slash_events = events_qs.filter(Q(slash=True) | Q(all_event=True))
+    aiterus_events = events_qs.filter(aiterus=True)
+    results.append(get_result_for_user("Павел", slash_events))
+    results.append(get_result_for_user("Анна", star_events))
+    results.append(get_result_for_user("Олеся", star_events))
+    results.append(get_result_for_user("Аитерус", aiterus_events))
+    for result in results:
+        if result["events"] is not None:
+            no_events = False
+    return results if not no_events else []
+
+
+def get_result_for_user(
+    username: str,
+    type_events: QuerySet[Event],
+) -> dict:
+    return {
+        "username": username,
+        "events": (
+            EventShowSerializer(
+                type_events,
+                many=True,
+            ).data
+            if type_events
+            else None
+        ),
+    }

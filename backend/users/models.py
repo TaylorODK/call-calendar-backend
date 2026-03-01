@@ -1,0 +1,94 @@
+from django.contrib.auth.models import AbstractUser
+from django.db import models
+from django.utils.crypto import get_random_string
+
+from core.constants import NAME_MAX_LENGTH, CODE_MAX_LENGTH
+from core.models import BaseModel
+from users.manager import UserManager
+
+
+class User(AbstractUser):
+    username = None
+    email = models.CharField(
+        verbose_name="Электронная почта",
+        max_length=NAME_MAX_LENGTH,
+        blank=False,
+        unique=True,
+    )
+    telegram_id = models.CharField(
+        verbose_name="ID телеграм",
+        max_length=NAME_MAX_LENGTH,
+        unique=True,
+    )
+    calendar_key = models.CharField(
+        verbose_name="Ключ для получения данных из календаря",
+        max_length=NAME_MAX_LENGTH,
+        blank=True,
+    )
+    is_active = models.BooleanField(
+        verbose_name="Активный пользователь",
+        default=False,
+    )
+    show_star_events = models.BooleanField(
+        verbose_name="Показывать мероприятия со звездочкой",
+        default=False,
+    )
+    show_slash_events = models.BooleanField(
+        verbose_name="Показывать мероприятия со слэшем",
+        default=False,
+    )
+    show_aiterus = models.BooleanField(
+        verbose_name="Показывать мероприятия Аитерус",
+        default=False,
+    )
+    calendar = models.ForeignKey(
+        "event.Calendar",
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name="users",
+    )
+    calendar_show_time = models.TimeField(
+        verbose_name="Время отображения календаря",
+        blank=True,
+        null=True,
+        default="08:00",
+    )
+    USERNAME_FIELD = "email"
+    REQUIRED_FIELDS = ["telegram_id"]
+    objects = UserManager()
+
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
+
+    def __str__(self) -> str:
+        return f"{self.email}"
+
+
+class LoginCode(BaseModel):
+    code = models.CharField(
+        verbose_name="Ключ для верификации почты",
+        max_length=CODE_MAX_LENGTH,
+        blank=True,
+        null=True,
+    )
+    email = models.EmailField(
+        verbose_name="Почта для верификации",
+        max_length=NAME_MAX_LENGTH,
+        blank=False,
+    )
+
+    class Meta:
+        verbose_name = "Код верификации почты"
+        verbose_name_plural = "Коды верификации почты"
+
+    def __str__(self) -> str:
+        return f"Код для верификации почты {self.email}"
+
+    @staticmethod
+    def get_random_code() -> str:
+        return get_random_string(
+            CODE_MAX_LENGTH,
+            allowed_chars="0123456789",
+        )

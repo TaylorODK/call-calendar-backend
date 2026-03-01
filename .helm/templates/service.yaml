@@ -1,0 +1,22 @@
+{{- range $microservice, $value := .Values.microservices }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  ports:
+    - port: {{ $value.service.port }}
+      name: http
+      protocol: TCP
+      targetPort: {{ $value.ports.http }}
+  type: {{ $value.service.type }}
+  selector:
+    app.kubernetes.io/name: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/instance: {{ $microservice }}-{{ $.Release.Name }}-{{ $.Values.stage }}
+{{- end }}

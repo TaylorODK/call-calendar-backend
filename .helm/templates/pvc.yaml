@@ -1,0 +1,36 @@
+---
+{{- if eq .Values.storage.driverType "democratic" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $.Release.Name }}-{{ $.Values.stage }}-pvc
+  namespace: call-calendar-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  storageClassName: democratic-csi-smb-hetzner-storagebox
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+{{- else if eq .Values.storage.driverType "official" }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ $.Release.Name }}-{{ $.Values.stage }}-pvc
+  namespace: call-calendar-{{ $.Values.stage }}
+  labels:
+    app.kubernetes.io/name: {{ $.Release.Name }}-{{ $.Values.stage }}
+    app.kubernetes.io/version: {{ $.Chart.AppVersion | quote }}
+    app.kubernetes.io/managed-by: {{ $.Release.Service }}
+spec:
+  storageClassName: hetzner-storagebox
+  accessModes:
+  - ReadWriteMany
+  resources:
+    requests:
+      storage: 5Gi
+{{- end }}

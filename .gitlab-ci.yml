@@ -1,0 +1,126 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  IMAGE_TAG: $CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
+  BASE_IMAGE_CACHE: $CI_REGISTRY_IMAGE/base_python-$CI_COMMIT_REF_NAME:cache
+  BASE_IMAGE: $CI_REGISTRY_IMAGE/base_python-$CI_COMMIT_REF_NAME:$CI_COMMIT_SHORT_SHA
+  BASE_IMAGE_PROD: $CI_REGISTRY_IMAGE/base_python-prod:$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
+  BOT_IMAGE: $CI_REGISTRY_IMAGE/telegram_bot:$CI_COMMIT_REF_NAME-$CI_COMMIT_SHORT_SHA
+
+build_base_python_image:
+  stage: build
+  image: docker:20.10.12
+  services:
+  - name: docker:20.10.12-dind
+    command: ["--tls=false"]
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker pull "$BASE_IMAGE_CACHE" || true
+    - docker build --network host --pull --cache-from "$BASE_IMAGE_CACHE" -f Dockerfile -t "$BASE_IMAGE" .
+    - docker tag "$BASE_IMAGE" "$BASE_IMAGE_CACHE"
+    - docker push "$BASE_IMAGE"
+    - docker push "$BASE_IMAGE_CACHE"
+  only:
+    - prod
+
+.deploy_helm: &deploy_helm
+  stage: deploy
+  image: alpine/helm:3.11.2
+  script:
+    - |
+      apk update && apk upgrade && apk add --no-cache curl bash gettext jq
+      curl -LO https://storage.googleapis.com/kubernetes-release/release/$(curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt)/bin/linux/amd64/kubectl
+      chmod +x ./kubectl && mv ./kubectl /usr/local/bin/kubectl
+      kubectl config get-contexts
+      kubectl config use-context $KUBE_CONTEXT
+    - |
+      cat <<EOL >.helm/.env
+      # Django
+      DEBUG=$DEFINED_DEBUG
+      DJANGO_SECRET_KEY=$DEFINED_SECRET_KEY
+      #SECRET_KEY=$DEFINED_SECRET_KEY
+      ALLOWED_HOSTS=$DEFINED_ALLOWED_HOSTS
+      DJANGO_ALLOWED_HOSTS=$DEFINED_ALLOWED_HOSTS
+      CSRF_TRUSTED_ORIGINS=$DEFINED_CSRF_TRUSTED_ORIGINS
+      DJANGO_ALLOWED_ORIGINS=$DEFINED_DJANGO_ALLOWED_ORIGINS
+      #DJANGO_ADMIN_PASSWORD=$DEFINED_DJANGO_ADMIN_PASSWORD
+      #DJANGO_ADMIN_EMAIL=$DEFINED_DJANGO_ADMIN_EMAIL
+      #ADMIN_ID=$DEFINED_ADMIN_ID
+      # Email Settings
+      EMAIL_HOST=$DEFINED_EMAIL_HOST
+      EMAIL_PORT=$DEFINED_EMAIL_PORT
+      EMAIL_USE_TLS=$DEFINED_EMAIL_USE_TLS
+      EMAIL_USE_SSL=$DEFINED_EMAIL_USE_SSL
+      EMAIL_HOST_USER=$DEFINED_EMAIL_HOST_USER
+      EMAIL_HOST_PASSWORD=$DEFINED_EMAIL_HOST_PASSWORD
+      DEFAULT_FROM_EMAIL=$DEFINED_DEFAULT_FROM_EMAIL
+      # OpenAI configuration
+      #GPT_MODEL=$DEFINED_GPT_MODEL
+      #OPENAI_API_KEY=$DEFINED_OPENAI_API_KEY
+      # Database credentials, connecting to DB from the application
+      POSTGRES_HOST=$DEFINED_DB_HOST
+      POSTGRES_DB=$DEFINED_DB_NAME
+      POSTGRES_USER=$DEFINED_DB_USER
+      POSTGRES_PASSWORD=$DEFINED_DB_PASS
+      DB_ENGINE=django.db.backends.postgresql
+      POSTGRES_PORT=5432
+      # Redis
+      REDIS_HOST=redis-${CI_PROJECT_NAME//_/-}-${ENVIRONMENT}
+      REDIS_DEFAULT_DB_NUM=0
+      REDIS_PORT=6379
+      # Telegram
+      BOT_TOKEN=$DEFINED_BOT_TOKEN
+      #CHANNEL_CHAT_ID=$DEFINED_CHANNEL_CHAT_ID
+      #TELEGRAM_MAX_MESSAGE_LENGTH=4000
+      # Celery configuration
+      REDIS_DB_FOR_CELERY=15
+      CELERY_ACCEPT_CONTENT=json
+      CELERY_TASK_SERIALIZER=json
+      EOL
+    - export KUBE_NAMESPACE="${CI_PROJECT_NAMESPACE##*/}-${ENVIRONMENT}"
+    - echo $KUBE_NAMESPACE
+    - kubectl create namespace ${KUBE_NAMESPACE//_/-} --dry-run=client -o yaml | kubectl apply -f -
+    - kubectl delete secrets ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} -n ${KUBE_NAMESPACE//_/-} --ignore-not-found
+    - kubectl create secret generic ${CI_PROJECT_NAME//_/-}-${ENVIRONMENT} --from-env-file=.helm/.env -n ${KUBE_NAMESPACE//_/-}
+    #- kubectl patch secret "${CI_PROJECT_NAME//_/-}-${ENVIRONMENT}" -n "${KUBE_NAMESPACE//_/-}" --type=merge -p "{\"stringData\":{\"GOOGLE_CREDENTIALS_JSON\":$(jq -Rs . < \"$CI_GOOGLE_CREDENTIALS_JSON\")}}"
+    - echo "helm upgrade ${CI_PROJECT_NAME//_/-} .helm --atomic --debug --install --namespace=${KUBE_NAMESPACE//_/-} --set image=${build_image} --set stage=${ENVIRONMENT} --timeout 5m --wait --create-namespace -f .helm/values-${ENVIRONMENT}.yaml"
+    - helm upgrade ${CI_PROJECT_NAME//_/-} .helm --atomic --debug --install --namespace=${KUBE_NAMESPACE//_/-} --set image=${build_image} --set stage=${ENVIRONMENT} --timeout 5m --wait --create-namespace -f .helm/values-${ENVIRONMENT}.yaml
+
+deploy_prod:
+  <<: *deploy_helm
+  variables:
+    ENVIRONMENT: prod
+    KUBE_CONTEXT: ylab-internal/keycloak:ylab-internal-group-agent-prod
+    DEFINED_DEBUG: $CI_DEV_DJANGO_DEBUG
+    DEFINED_SECRET_KEY: $CI_PROD_SECRET_KEY
+    DEFINED_CSRF_TRUSTED_ORIGINS: https://call-calendar-prod.ylab.website
+    DEFINED_DJANGO_ALLOWED_ORIGINS: https://call-calendar-prod.ylab.website,http://call-calendar-prod.ylab.website,http://localhost:8000,http://127.0.0.1:8000
+    #DEFINED_DJANGO_ADMIN_PASSWORD: $CI_DEV_DJANGO_ADMIN_PASSWORD
+    #DEFINED_DJANGO_ADMIN_EMAIL: $CI_DEV_DJANGO_ADMIN_EMAIL
+    DEFINED_ALLOWED_HOSTS: "*"
+    #DEFINED_ADMIN_ID: $CI_DEV_ADMIN_ID
+    DEFINED_EMAIL_HOST: smtp.lite-host.in
+    DEFINED_EMAIL_PORT: 587
+    DEFINED_EMAIL_USE_TLS: True
+    DEFINED_EMAIL_USE_SSL: False
+    DEFINED_EMAIL_HOST_USER: calendar@ylab.team
+    DEFINED_EMAIL_HOST_PASSWORD: $CI_PROD_EMAIL_HOST_PASSWORD
+    DEFINED_DEFAULT_FROM_EMAIL: calendar@ylab.team
+    DEFINED_DB_HOST: $PROD_DB_HOST
+    DEFINED_DB_NAME: $PROD_DB_NAME
+    DEFINED_DB_USER: $PROD_DB_USER
+    DEFINED_DB_PASS: $PROD_DB_PASS
+    #DEFINED_GPT_MODEL: gpt-4
+    #DEFINED_OPENAI_API_KEY: $CI_DEV_OPENAI_API_KEY
+    DEFINED_BOT_TOKEN: $CI_PROD_BOT_TOKEN
+    #DEFINED_CHANNEL_CHAT_ID: $CI_DEV_CHANNEL_CHAT_ID
+    #KUBE_NAMESPACE: ${CI_PROJECT_NAMESPACE##*/}-${ENVIRONMENT}
+    build_image: $BASE_IMAGE
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'prod'
